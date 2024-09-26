@@ -7,7 +7,7 @@ OBJS += mdriver.o
 OBJS += mm.o
 LIBS += -lm -lrt
 
-CC = gcc
+CC = /usr/bin/gcc
 CFLAGS += -MMD -MP # dependency tracking flags
 CFLAGS += -I./
 CFLAGS += -std=gnu99 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-parameter
