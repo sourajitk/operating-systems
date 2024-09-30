@@ -1,0 +1,13 @@
+clock.d
+clock.o
+fcyc.d
+fcyc.o
+mdriver
+mdriver.d
+mdriver.o
+memlib.d
+memlib.o
+mm.d
+mm.o
+stree.d
+stree.o
