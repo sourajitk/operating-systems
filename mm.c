@@ -1,11 +1,11 @@
 /*
  * mm.c
  *
- * Name 1: [FILL IN]
- * PSU ID 1: [FILL IN]
+ * Name 1: Sourajit Karmakar
+ * PSU ID 1: 921859793
  *
- * Name 2: [FILL IN]
- * PSU ID 2: [FILL IN]
+ * Name 2: Ann Zezyus
+ * PSU ID 2: 990191582
  *
  * NOTE TO STUDENTS: Replace this header comment with your own header
  * comment that gives a high level description of your solution.
