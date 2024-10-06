@@ -55,6 +55,7 @@
 #define memcpy mem_memcpy
 #endif /* DRIVER */
 
+
 /* 
  * Number of blocks to be aligned on a 16-byte boundary.
  * This is then later used with align() to round to the nearest
@@ -63,6 +64,10 @@
 #define ALIGNMENT 16
 
 // GLobal variables [TODO]
+static int is_mm_inited = 0;
+struct node_t {
+    size_t size; // The size of the memory block
+};
 
 // Use static inline functions instead of using macros. [TODO]
 
@@ -78,7 +83,13 @@ static size_t align(size_t x)
 bool mm_init(void)
 {
     /* IMPLEMENT THIS */
-    return true;
+    // Trying out a 311 style "mount_check" (might need more than just this)
+    if (is_mm_inited == 0) {
+        return false;
+    } else {
+        is_mm_inited = 1;
+        return true;
+    }
 }
 
 /*
@@ -87,7 +98,36 @@ bool mm_init(void)
 void* malloc(size_t size)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    // Align the requested size
+    const size_t size_mm = align(size);
+    
+    // Define the node struct to manage memory blocks
+    struct node_t *node;
+    
+    // Check if the aligned size is valid (greater than 0)
+    if (size_mm == 0) {
+        return NULL;
+    }
+
+    // Search for a suitable free block (implementation dependent)
+    node = find_free_block(size_mm);
+
+    if (node != NULL) {
+        // Suitable free block found, remove it from the free list and allocate it
+        remove_from_free_list(node);
+        node->size = size_mm;
+    } else {
+        // No suitable block found, extend the heap
+        node = extend_heap(size_mm);
+        if (node == NULL) {
+            return NULL;
+        }
+        node->size = size_mm;
+    }
+
+    // Return the pointer to the allocated memory (after the metadata/header)
+    return (void*)(node + 1);
+
 }
 
 /*
@@ -105,6 +145,33 @@ void free(void* ptr)
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
+    if (oldptr == NULL) {
+        return malloc(size);
+    }
+    // Construct a buf node
+    struct node_t* buf_ptr = (struct node_t*)oldptr - 1;
+
+    // Check if size equals 0
+    if (size == 0) {
+        free(oldptr);
+        return NULL;
+    }
+
+    // Check if the size matches
+    if (buf_ptr->size >= size) {
+        return oldptr;
+    } else {
+        // Allocate a new block of the input size and copy data over
+        struct node_t* n_ptr = malloc(size);
+        if (n_ptr == NULL) {
+            return NULL;
+        } else {
+            memcpy(n_ptr, oldptr, buf_ptr->size);
+            free(oldptr);
+        }
+        return n_ptr;
+    }
+
     return NULL;
 }
 
@@ -150,6 +217,7 @@ bool mm_checkheap(int lineno)
 #ifdef DEBUG
     /* Write code to check heap invariants here */
     /* IMPLEMENT THIS */
+
 #endif /* DEBUG */
     return true;
 }
