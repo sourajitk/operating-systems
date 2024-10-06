@@ -27,6 +27,10 @@
  * If you want to enable your debugging output and heap checker code,
  * uncomment the following line. Be sure not to have debugging enabled
  * in your final submission.
+ * 
+ * We are implementing memory allocator functions that are typically provided by
+ * the standard C library.
+ * 
  */
 // #define DEBUG
 
@@ -51,8 +55,16 @@
 #define memcpy mem_memcpy
 #endif /* DRIVER */
 
-/* What is the correct alignment? */
+/* 
+ * Number of blocks to be aligned on a 16-byte boundary.
+ * This is then later used with align() to round to the nearest
+ * multiple of 16.
+ */
 #define ALIGNMENT 16
+
+// GLobal variables [TODO]
+
+// Use static inline functions instead of using macros. [TODO]
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 static size_t align(size_t x)
@@ -70,7 +82,7 @@ bool mm_init(void)
 }
 
 /*
- * malloc
+ * 
  */
 void* malloc(size_t size)
 {
