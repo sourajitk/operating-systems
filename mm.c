@@ -55,7 +55,6 @@
 #define memcpy mem_memcpy
 #endif /* DRIVER */
 
-
 /* 
  * Number of blocks to be aligned on a 16-byte boundary.
  * This is then later used with align() to round to the nearest
@@ -63,18 +62,116 @@
  */
 #define ALIGNMENT 16
 
+// Define some constants
+#define WORD_SIZE  8                // Word and header/footer size
+#define HEAD_EXTENSION (1 << 12)  // Extend heap by this amount 4096
+
 // GLobal variables [TODO]
-static int is_mm_inited = 0;
-struct node_t {
-    size_t size; // The size of the memory block
-};
+static char *heap_list_ptr;     // The first pointer to the heap block
 
 // Use static inline functions instead of using macros. [TODO]
+// Pack size and allocation bit into a single word to store in the header/footer
+static inline size_t pack(size_t block_size, size_t allocated) 
+{
+    // Combine size and allocation bit into a single value
+    return (block_size | allocated);
+}
+
+// Read a word (block size and allocated bit) from the address pointed by ptr
+static inline uint64_t read_word(const void* ptr) 
+{
+    // Dereference the pointer to get the stored value
+    return (*(const uint64_t*)(ptr));
+}
+
+// Write a value (block size and allocated bit) to the address pointed by ptr
+static inline void write_word(void* ptr, size_t value) 
+{
+    // Store the value at the memory address pointed by ptr
+    (*(uint64_t*)(ptr) = value);  
+}
+
+// Extract the block size from the header or footer
+// The lower 4 bits are masked out to get just the size
+static inline size_t get_size(const void* ptr) 
+{
+    // Mask the lower 4 bits to extract the size
+    return (read_word(ptr) & ~0xF);
+}
+
+// Extract the allocated bit from the header or footer (1 if allocated, 0 if free)
+static inline size_t get_alloc(const void* ptr) 
+{
+    // Mask all but the last bit to get the allocated status
+    return (read_word(ptr) & 0x1);
+}
+
+// Given a block pointer, compute the address of the block's header
+// The header is stored just before the block's payload
+static inline void* header(const void* block_ptr) 
+{
+    // Subtract WORD_SIZE (8 bytes) to locate the header
+    return (void*)((char*)block_ptr - WORD_SIZE);
+}
+
+// Given a block pointer, compute the address of the block's footer
+// The footer is located at the end of the block
+static inline void* footer(const void* block_ptr) 
+{
+    return (void*)((char*)block_ptr + get_size(header(block_ptr)) - ALIGNMENT);
+    // Footer is located at block size minus ALIGNMENT (16 bytes)
+}
+
+// Compute the address of the next block in the heap
+// The next block starts right after the current block, based on the current block's size
+static inline void* next_block(const void* block_ptr) 
+{
+    return (void*)((char*)block_ptr + get_size(header(block_ptr)));  // Add the current block size to get the next block
+}
+
+// Compute the address of the previous block in the heap
+// The previous block ends just before the current block
+static inline void* prev_block(const void* block_ptr) 
+{
+    return (void*)((char*)block_ptr - get_size((char*)block_ptr - ALIGNMENT));  
+    // Move backward by the size of the previous block to locate its start
+}
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 static size_t align(size_t x)
 {
     return ALIGNMENT * ((x+ALIGNMENT-1)/ALIGNMENT);
+}
+
+/*
+ * Implement a way to extend the size of the heap with a new free block
+*/
+static void *extend_heap(size_t words)
+{
+    char *block_ptr;
+    size_t size;
+
+    /* 
+     * Basically, implement a way to check if the data in the word is odd or even
+     * If words is odd, the result ensures the allocated size is aligned to an even number of words by adding 1.
+     * WORD_SIZE (8 bytes) is used to convert the number of words into the corresponding byte size.
+    */
+    size = (words % 2) ? (words + 1) * WORD_SIZE : words * WORD_SIZE;
+
+    // Request more memory from the system
+    block_ptr = mem_sbrk(size);
+    if (block_ptr == (void*) - 1)
+    {
+        return NULL;
+    }
+
+    // Initialize free block header and footer, and set the new epilogue header
+    write_word(header(block_ptr), pack(size, 0));           // Free block header
+    write_word(footer(block_ptr), pack(size, 0));           // Free block footer
+    write_word(header(next_block(block_ptr)), pack(0, 1));  // New epilogue header
+
+    // Coalesce if the previous block was free and return the block pointer
+    return coalesce(block_ptr);
 }
 
 /*
@@ -93,7 +190,7 @@ bool mm_init(void)
 }
 
 /*
- * 
+ * malloc
  */
 void* malloc(size_t size)
 {
