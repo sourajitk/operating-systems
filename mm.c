@@ -64,7 +64,7 @@
 
 // Define some constants
 #define WORD_SIZE  8                // Word and header/footer size
-#define HEAD_EXTENSION (1 << 12)  // Extend heap by this amount 4096
+#define HEAP_EXTENSION (1 << 12)    // Extend heap by this amount 4096
 
 // GLobal variables [TODO]
 static char *heap_list_ptr;     // The first pointer to the heap block
@@ -180,13 +180,34 @@ static void *extend_heap(size_t words)
 bool mm_init(void)
 {
     /* IMPLEMENT THIS */
-    // Trying out a 311 style "mount_check" (might need more than just this)
-    if (is_mm_inited == 0) {
+    // Create the initial empty heap
+    heap_list_ptr = mem_sbrk(4 * WORD_SIZE);
+    if (heap_list_ptr == (void*)-1)
+    {
         return false;
-    } else {
-        is_mm_inited = 1;
-        return true;
     }
+
+    // Alignment padding
+    write_word(heap_list_ptr, 0);
+
+    // Prologue header (8 bytes, allocated)
+    write_word(heap_list_ptr + (1 * WORD_SIZE), pack(ALIGNMENT, 1));
+
+    // Prologue footer (8 bytes, allocated)
+    write_word(heap_list_ptr + (2 * WORD_SIZE), pack(ALIGNMENT, 1));
+
+    // Epilogue header (0 bytes, allocated)
+    write_word(heap_list_ptr + (3 * WORD_SIZE), pack(0, 1));
+
+    // Move heap_list_ptr to the start of the first block
+    heap_list_ptr += (2 * WORD_SIZE);
+
+    // Extend the empty heap with a free block of CHUNKSIZE bytes
+    if (extend_heap(HEAP_EXTENSION / WORD_SIZE) == NULL)
+    {
+        return false;
+    }
+    return true;
 }
 
 /*
