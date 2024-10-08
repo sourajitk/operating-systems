@@ -328,34 +328,40 @@ static void *coalesce_mem(void *block_ptr)
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
-    if (oldptr == NULL) {
+    size_t old_size;
+    void* new_ptr;
+
+    // If old_ptr is NULL, simply allocate new memory
+    if (oldptr == NULL)
+    {
         return malloc(size);
     }
-    // Construct a buf node
-    struct node_t* buf_ptr = (struct node_t*)oldptr - 1;
 
-    // Check if size equals 0
-    if (size == 0) {
+    // If new_size is 0, free the old block and return NULL
+    if (size == 0)
+    {
         free(oldptr);
         return NULL;
     }
 
-    // Check if the size matches
-    if (buf_ptr->size >= size) {
-        return oldptr;
-    } else {
-        // Allocate a new block of the input size and copy data over
-        struct node_t* n_ptr = malloc(size);
-        if (n_ptr == NULL) {
-            return NULL;
-        } else {
-            memcpy(n_ptr, oldptr, buf_ptr->size);
-            free(oldptr);
-        }
-        return n_ptr;
+    // Allocate new block of memory
+    new_ptr = malloc(size);
+    if (new_ptr == NULL)
+    {
+        return NULL;  // Allocation failed
     }
 
-    return NULL;
+    // Copy data from the old block to the new one
+    old_size = get_size(header(oldptr));
+    if (old_size > size)
+    {
+        old_size = size;  // Copy only up to the new size
+    }
+
+    mem_memcpy(new_ptr, oldptr, old_size);
+    free(oldptr);  // Free the old block
+
+    return new_ptr;
 }
 
 /*
