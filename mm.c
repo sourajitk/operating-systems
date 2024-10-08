@@ -64,7 +64,7 @@
 
 // Define some constants
 #define WORD_SIZE  8                // Word and header/footer size
-#define HEAP_EXTENSION (1 << 12)    // Extend heap by 4096 bytes
+#define HEAP_EXTENSION 4096         // Extend heap by 4096 bytes
 #define HEAP_MULTIPLIER 2           // Extend heap by this multiple of the requested size
 
 // GLobal variables [TODO]
@@ -442,41 +442,67 @@ void free(void* ptr)
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
-    // If the pointer is NULL, treat this as a malloc call
+    // If pointer is NULL, directly allocate new memory (acts like malloc)
     if (!oldptr)
     {
         return malloc(size);
     }
 
-    // If new_size is 0, free the block and return NULL
+    // If the size is 0, free the block and return NULL
     if (size == 0)
     {
         free(oldptr);
         return NULL;
     }
 
-    // Get the current size of the old block
+    // Try shrinking or extending in place if possible
     size_t old_size = get_size(header(oldptr));
 
-    // If the new size is less than or equal to the old size, no need to reallocate
+    // If the new size is smaller or equal, shrink in place
     if (size <= old_size)
     {
-        return oldptr;  // Simply return the same block
+        if (old_size - size >= 32)
+        {
+            // Split the block to free the remaining space
+            size_t remaining_size = old_size - size;
+            write_word(header(oldptr), pack(size, 1));  // Shrink the current block
+            write_word(footer(oldptr), pack(size, 1));
+
+            // Create a new free block in the remaining space
+            void* new_free_block = next_block(oldptr);
+            write_word(header(new_free_block), pack(remaining_size, 0));
+            write_word(footer(new_free_block), pack(remaining_size, 0));
+        }
+        return oldptr;  // Return the same pointer if resized in place
     }
 
-    // Otherwise, allocate a new larger block
+    // Extend if adjacent free block is available
+    void* next_block_ptr = next_block(oldptr);
+    if (!get_alloc(header(next_block_ptr)))
+    {
+        size_t next_block_size = get_size(header(next_block_ptr));
+        if ((old_size + next_block_size) >= size)
+        {
+            // Merge the two blocks
+            size_t total_size = old_size + next_block_size;
+            write_word(header(oldptr), pack(total_size, 1));
+            write_word(footer(oldptr), pack(total_size, 1));
+            return oldptr;  // Resized in place by merging
+        }
+    }
+
+    // Allocate new memory if in-place resizing is not possible
     void* newptr = malloc(size);
     if (!newptr)
     {
-        return NULL;  // Return NULL if allocation fails
+        return NULL;  // Allocation failed
     }
 
-    // Copy the data from the old block to the new block
+    // Copy data from old block to new block manually
     mem_memcpy(newptr, oldptr, old_size);
 
-    // Free the old block
+    // Free the old block after copying data
     free(oldptr);
-
     return newptr;
 }
 
