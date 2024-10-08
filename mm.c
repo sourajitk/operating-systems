@@ -227,29 +227,42 @@ static void *coalesce_mem(void *block_ptr)
      * Finally, we have size to get the size of the header block pointer
      */
 
-    size_t prev_alloc = get_alloc(footer(prev_block(block_ptr)));
-    size_t next_alloc = get_alloc(header(next_block(block_ptr)));
-    size_t size = get_size(header(block_ptr));
+    size_t current_size = get_size(header(block_ptr));
+    bool merge_prev = false;
+    bool merge_next = false;
 
-    // First, we check if the 
-    if (prev_alloc && next_alloc) {
-        return block_ptr;
-    } else if (prev_alloc && !next_alloc) {
-        // Update size of the block after retrieving it from the pointer
-        size += get_size(header(next_block(block_ptr)));
-        write_word(header(block_ptr), pack(size, 0));  // Update current block's header
-        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
-    } else if (!prev_alloc && next_alloc) {
-        size += get_size(header(prev_block(block_ptr)));
-        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
-        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
-        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
-    } else {
-        size += get_size(header(prev_block(block_ptr))) + get_size(footer(next_block(block_ptr)));
-        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
-        write_word(footer(next_block(block_ptr)), pack(size, 0));  // Update next block's footer
-        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
+    // Mark blocks for merging based on their allocation status
+    if (!get_alloc(header(prev_block(block_ptr))))
+    {
+        merge_prev = true;
     }
+    if (!get_alloc(header(next_block(block_ptr))))
+    {
+        merge_next = true;
+    }
+
+    // Merge based on the marked blocks
+    if (merge_prev && merge_next)
+    {
+        // Merge with both previous and next blocks
+        current_size += get_size(header(prev_block(block_ptr))) + get_size(footer(next_block(block_ptr)));
+        block_ptr = prev_block(block_ptr);
+    }
+    else if (merge_prev)
+    {
+        // Merge with previous block
+        current_size += get_size(header(prev_block(block_ptr)));
+        block_ptr = prev_block(block_ptr);
+    }
+    else if (merge_next)
+    {
+        // Merge with next block
+        current_size += get_size(header(next_block(block_ptr)));
+    }
+
+    // Update header and footer after merging
+    write_word(header(block_ptr), pack(current_size, 0));
+    write_word(footer(block_ptr), pack(current_size, 0));
 
     return block_ptr;
 
