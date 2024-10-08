@@ -371,15 +371,19 @@ void* malloc(size_t size)
 
     size_t adjusted_size;
 
-    // Adjust block size to account for overhead and alignment
+    // Check for small sizes first and set to the minimum block size
     if (size <= ALIGNMENT)
     {
-        adjusted_size = 2 * ALIGNMENT;  // Minimum block size
+        adjusted_size = 2 * ALIGNMENT;
     }
     else
     {
-    adjusted_size = align(size + 2 * WORD_SIZE);  // Align size plus overhead
-}
+        // Add overhead (header/footer) to the requested size
+        size_t total_size = size + (2 * WORD_SIZE);
+
+        // Align the total size to the nearest alignment boundary
+        adjusted_size = align(total_size);
+    }
 
     // Try to find a suitable block from the free list
     char* block_ptr = mem_block_size(adjusted_size);
