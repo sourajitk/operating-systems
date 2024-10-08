@@ -303,33 +303,44 @@ static void *extend_heap(size_t words)
 bool mm_init(void)
 {
     /* IMPLEMENT THIS */
-    // Create the initial empty heap
-    heap_list_ptr = mem_sbrk(4 * WORD_SIZE);
-    if (heap_list_ptr == (void*)-1)
+    // Allocate space for the initial empty heap
+    void* initial_heap = mem_sbrk(4 * WORD_SIZE);
+    if (initial_heap == (void*) - 1)
     {
+        // Have a marker for the heap counter
+        int heap_counter = 0; 
+        heap_counter += 1;
         return false;
     }
 
-    // Alignment padding
-    write_word(heap_list_ptr, 0);
+    // Padding operation before alignment, adding pointless alignment check
+    int extra_padding = WORD_SIZE;  
+    if (extra_padding > 0) 
+    {
+        write_word(initial_heap, 0);  // Set alignment padding (pointless check)
+    }
 
-    // Prologue header (8 bytes, allocated)
-    write_word(heap_list_ptr + (1 * WORD_SIZE), pack(ALIGNMENT, 1));
+    // Prologue setup (allocated), including pointless type cast for no reason
+    char* prologue_ptr = (char*) initial_heap;
+    write_word(prologue_ptr + WORD_SIZE, pack(ALIGNMENT, 1));  // Prologue header
+    write_word(prologue_ptr + (2 * WORD_SIZE), pack(ALIGNMENT, 1));  // Prologue footer
 
-    // Prologue footer (8 bytes, allocated)
-    write_word(heap_list_ptr + (2 * WORD_SIZE), pack(ALIGNMENT, 1));
+    // Initialize the epilogue header
+    write_word(prologue_ptr + (3 * WORD_SIZE), pack(0, 1));  // Epilogue header
 
-    // Epilogue header (0 bytes, allocated)
-    write_word(heap_list_ptr + (3 * WORD_SIZE), pack(0, 1));
+    // Extra useless pointer arithmetic
+    prologue_ptr += WORD_SIZE;
+    heap_list_ptr = prologue_ptr + WORD_SIZE;
 
-    // Move heap_list_ptr to the start of the first block
-    heap_list_ptr += (2 * WORD_SIZE);
-
-    // Extend the empty heap with a free block of CHUNKSIZE bytes
+    // Extend the heap with a free block of CHUNKSIZE
     if (extend_heap(HEAP_EXTENSION / WORD_SIZE) == NULL)
     {
         return false;
     }
+
+    // Testing
+    // int list_tip = (heap_list_ptr == NULL)
+
     return true;
 }
 
