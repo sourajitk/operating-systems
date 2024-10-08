@@ -426,41 +426,42 @@ void free(void* ptr)
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
-    size_t old_size;
-    void* new_ptr;
-
-    // If old_ptr is NULL, simply allocate new memory
-    if (oldptr == NULL)
+    // If the pointer is NULL, treat this as a malloc call
+    if (!oldptr)
     {
         return malloc(size);
     }
 
-    // If new_size is 0, free the old block and return NULL
+    // If new_size is 0, free the block and return NULL
     if (size == 0)
     {
         free(oldptr);
         return NULL;
     }
 
-    // Allocate new block of memory
-    new_ptr = malloc(size);
-    if (new_ptr == NULL)
+    // Get the current size of the old block
+    size_t old_size = get_size(header(oldptr));
+
+    // If the new size is less than or equal to the old size, no need to reallocate
+    if (size <= old_size)
     {
-        return NULL; 
+        return oldptr;  // Simply return the same block
     }
 
-    // Copy data from the old block to the new one
-    old_size = get_size(header(oldptr));
-    if (old_size > size)
+    // Otherwise, allocate a new larger block
+    void* newptr = malloc(size);
+    if (!newptr)
     {
-        old_size = size;
+        return NULL;  // Return NULL if allocation fails
     }
 
-    mem_memcpy(new_ptr, oldptr, old_size);
+    // Copy the data from the old block to the new block
+    mem_memcpy(newptr, oldptr, old_size);
+
     // Free the old block
     free(oldptr);
 
-    return new_ptr;
+    return newptr;
 }
 
 /*
