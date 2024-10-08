@@ -171,7 +171,7 @@ static void *extend_heap(size_t words)
     write_word(header(next_block(block_ptr)), pack(0, 1));  // New epilogue header
 
     // Coalesce if the previous block was free and return the block pointer
-    return coalesce(block_ptr);
+    return coalesce_mem(block_ptr);
 }
 
 /*
@@ -256,6 +256,57 @@ void free(void* ptr)
     /* IMPLEMENT THIS */
     return;
 }
+
+/*
+ * Code for the function memory coalescing. Basically the purpose of 
+ * he coalescing is to free up adjacent blocks of memory into
+ * one contiguous block of memory. We will be using this to 
+ * make sure we can combine the free memory so it can be used
+ * by the trace driver for the sample data.
+ * 
+ * Here, the memory blocks store both their size and an allocated
+ * bit in the same word.
+ * 
+ */
+static void *coalesce_mem(void *block_ptr)
+{
+
+    /* 
+     * Define the allocation structure
+     * The idea here is to make sure we get the data about:
+     * prev_alloc gets us the memory pointer for the previous block
+     * next_alloc gets us the next allocation
+     * Finally, we have size to get the size of the header
+     */
+
+    size_t prev_alloc = get_alloc(footer(prev_block(block_ptr)));
+    size_t next_alloc = get_alloc(header(next_block(block_ptr)));
+    size_t size = get_size(header(block_ptr));
+
+    // First, we check if the 
+    if (prev_alloc && next_alloc) {
+        return block_ptr;
+    } else if (prev_alloc && !next_alloc) {
+        // Update size of the block after retrieving it from the pointer
+        size += get_size(header(next_block(block_ptr)));
+        write_word(header(block_ptr), pack(size, 0));  // Update current block's header
+        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
+    } else if (!prev_alloc && next_alloc) {
+        size += get_size(header(prev_block(block_ptr)));
+        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
+        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
+        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
+    } else {
+        size += get_size(header(prev_block(block_ptr))) + get_size(footer(next_block(block_ptr)));
+        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
+        write_word(footer(next_block(block_ptr)), pack(size, 0));  // Update next block's footer
+        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
+    }
+
+    return block_ptr;
+
+}
+
 
 /*
  * realloc
