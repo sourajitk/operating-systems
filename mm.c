@@ -64,8 +64,8 @@
 
 // Define some constants
 #define WORD_SIZE  8                // Word and header/footer size
-#define HEAP_EXTENSION (1 << 12)    // Extend heap by this amount 4096
-#define HEAP_MULTIPLIER 2          // Extend heap by this multiple of the requested size
+#define HEAP_EXTENSION (1 << 12)    // Extend heap by 4096 bytes
+#define HEAP_MULTIPLIER 2           // Extend heap by this multiple of the requested size
 
 // GLobal variables [TODO]
 static char *heap_list_ptr;     // The first pointer to the heap block
@@ -154,7 +154,7 @@ static size_t smaller_blk_size(size_t x, size_t y){
     }
 }
 
-// Function to select the appropriate size class
+// Function to select the appropriate size class [TODO for checkpoint 2]
 int get_size_class(size_t size)
 {
     if (size <= 32) return 0;
@@ -363,40 +363,39 @@ bool mm_init(void)
 void* malloc(size_t size)
 {
     /* IMPLEMENT THIS */
-    size_t adjusted_size;    // Adjusted block size
-    size_t extend_size;      // Amount to extend heap if no fit is found
-    char* block_ptr;
-
     // Ignore size 0 requests
     if (size == 0)
     {
         return NULL;
     }
 
-    // Adjust block size to include overhead and alignment
+    size_t adjusted_size;
+
+    // Adjust block size to account for overhead and alignment
     if (size <= ALIGNMENT)
     {
         adjusted_size = 2 * ALIGNMENT;  // Minimum block size
     }
     else
     {
-        adjusted_size = align(size + 2 * WORD_SIZE);  // Align size plus overhead
-    }
+    adjusted_size = align(size + 2 * WORD_SIZE);  // Align size plus overhead
+}
 
-    // Search the free list for a suitable block
-    block_ptr = mem_block_size(adjusted_size);
-    if (block_ptr != NULL)
+    // Try to find a suitable block from the free list
+    char* block_ptr = mem_block_size(adjusted_size);
+    if (block_ptr)
     {
         place(block_ptr, adjusted_size);
         return block_ptr;
     }
 
-    // No fit found, extend the heap and place the block
-    extend_size = smaller_blk_size(adjusted_size, HEAP_EXTENSION);
+    // No fit found, extend the heap by the larger of the requested or default chunk size
+    size_t extend_size = smaller_blk_size(adjusted_size, HEAP_EXTENSION);
     block_ptr = extend_heap(extend_size);
-    if (block_ptr == NULL)
+    
+    if (!block_ptr)
     {
-        return NULL;  // Failed to extend heap
+        return NULL;  // Heap extension failed
     }
 
     place(block_ptr, adjusted_size);
