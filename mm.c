@@ -254,7 +254,21 @@ void* malloc(size_t size)
 void free(void* ptr)
 {
     /* IMPLEMENT THIS */
-    return;
+    // If the pointer is NULL, there's nothing to free
+    if (ptr == NULL)
+    {
+        return;
+    }
+
+    // Retrieve the size of the block
+    size_t size = get_size(header(ptr));
+
+    // Mark the block as free by updating its header and footer
+    write_word(header(ptr), pack(size, 0));  // Free block header
+    write_word(footer(ptr), pack(size, 0));  // Free block footer
+
+    // Coalesce adjacent free blocks if possible
+    coalesce_mem(ptr);
 }
 
 /*
@@ -276,7 +290,7 @@ static void *coalesce_mem(void *block_ptr)
      * The idea here is to make sure we get the data about:
      * prev_alloc gets us the memory pointer for the previous block
      * next_alloc gets us the next allocation
-     * Finally, we have size to get the size of the header
+     * Finally, we have size to get the size of the header block pointer
      */
 
     size_t prev_alloc = get_alloc(footer(prev_block(block_ptr)));
