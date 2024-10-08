@@ -154,22 +154,26 @@ static size_t smaller_blk_size(size_t x, size_t y){
 }
 
 /*
- * Find a free block that fits the requested size
+ * Search for the first free block that fits the requested size
  */
-static void* find_fit(size_t adjusted_size)
+static void* mem_block_size(size_t required_size)
 {
-    void* block_ptr;
+    void* current_block = heap_list_ptr;  // Start search from the beginning of the heap
 
-    // First fit search through the heap
-    for (block_ptr = heap_list_ptr; get_size(header(block_ptr)) > 0; block_ptr = next_block(block_ptr))
+    // Traverse the heap using the first-fit search strategy
+    while (get_size(header(current_block)) > 0) 
     {
-        if (!get_alloc(header(block_ptr)) && (adjusted_size <= get_size(header(block_ptr))))
+        // If the block is free and its size is sufficient, return the block
+        if (!get_alloc(header(current_block)) && required_size <= get_size(header(current_block))) 
         {
-            return block_ptr;
+            return current_block;
         }
+
+        // Move to the next block
+        current_block = next_block(current_block);
     }
 
-    return NULL;  // No suitable free block found
+    return NULL;  // No suitable free block was found
 }
 
 /*
@@ -179,25 +183,26 @@ static void* find_fit(size_t adjusted_size)
 static void place(void* block_ptr, size_t adjusted_size)
 {
     size_t current_size = get_size(header(block_ptr));
+    size_t remaining_size = current_size - adjusted_size;
 
-    if ((current_size - adjusted_size) >= (2 * ALIGNMENT))
+    // Check if the block should be split
+    if (remaining_size >= (2 * ALIGNMENT))
     {
-        // Split the block if the remainder is large enough
+        // Allocate the requested block size
         write_word(header(block_ptr), pack(adjusted_size, 1));
         write_word(footer(block_ptr), pack(adjusted_size, 1));
 
-        block_ptr = next_block(block_ptr);
-        write_word(header(block_ptr), pack(current_size - adjusted_size, 0));
-        write_word(footer(block_ptr), pack(current_size - adjusted_size, 0));
-    }
-    else
+        // Update the pointer and create the remaining free block
+        void* next_block_ptr = next_block(block_ptr);
+        write_word(header(next_block_ptr), pack(remaining_size, 0));
+        write_word(footer(next_block_ptr), pack(remaining_size, 0));
+    } else
     {
-        // No split, just allocate the entire block
+        // Allocate the entire block if splitting isn't possible
         write_word(header(block_ptr), pack(current_size, 1));
         write_word(footer(block_ptr), pack(current_size, 1));
     }
 }
-
 
 
 /*
@@ -256,29 +261,26 @@ static void *coalesce_mem(void *block_ptr)
 */
 static void *extend_heap(size_t words)
 {
-    char *block_ptr;
-    size_t size;
+    // Round up the word count to the nearest even number for alignment
+    size_t size = (words + 1) & ~1;  // Efficiently align size by rounding up if odd
+    size *= WORD_SIZE;  // Convert to bytes
 
-    /* 
-     * Basically, implement a way to check if the data in the word is odd or even
-     * If words is odd, the result ensures the allocated size is aligned to an even number of words by adding 1.
-     * WORD_SIZE (8 bytes) is used to convert the number of words into the corresponding byte size.
-    */
-    size = (words % 2) ? (words + 1) * WORD_SIZE : words * WORD_SIZE;
-
-    // Request more memory from the system
-    block_ptr = mem_sbrk(size);
-    if (block_ptr == (void*) - 1)
+    // Request additional memory from the system
+    void *block_ptr = mem_sbrk(size);
+    if (block_ptr == (void*) -1)
     {
-        return NULL;
+        return NULL;  // If memory allocation fails, return NULL
     }
 
-    // Initialize free block header and footer, and set the new epilogue header
-    write_word(header(block_ptr), pack(size, 0));           // Free block header
-    write_word(footer(block_ptr), pack(size, 0));           // Free block footer
-    write_word(header(next_block(block_ptr)), pack(0, 1));  // New epilogue header
+    // Set up block header and footer for the new free block
+    write_word(header(block_ptr), pack(size, 0));  // Free block header
+    write_word(footer(block_ptr), pack(size, 0));  // Free block footer
 
-    // Coalesce if the previous block was free and return the block pointer
+    // Create a new epilogue block header
+    void *next_block_ptr = next_block(block_ptr);
+    write_word(header(next_block_ptr), pack(0, 1));  // Epilogue header
+
+    // Return coalesced block if needed
     return coalesce_mem(block_ptr);
 }
 
@@ -345,7 +347,7 @@ void* malloc(size_t size)
     }
 
     // Search the free list for a suitable block
-    block_ptr = find_fit(adjusted_size);
+    block_ptr = mem_block_size(adjusted_size);
     if (block_ptr != NULL)
     {
         place(block_ptr, adjusted_size);
