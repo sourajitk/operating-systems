@@ -65,6 +65,7 @@
 // Define some constants
 #define WORD_SIZE  8                // Word and header/footer size
 #define HEAP_EXTENSION (1 << 12)    // Extend heap by this amount 4096
+#define HEAP_MULTIPLIER 2          // Extend heap by this multiple of the requested size
 
 // GLobal variables [TODO]
 static char *heap_list_ptr;     // The first pointer to the heap block
@@ -153,6 +154,21 @@ static size_t smaller_blk_size(size_t x, size_t y){
     }
 }
 
+// Function to select the appropriate size class
+int get_size_class(size_t size)
+{
+    if (size <= 32) return 0;
+    else if (size <= 64) return 1;
+    else if (size <= 128) return 2;
+    else if (size <= 256) return 3;
+    else if (size <= 512) return 4;
+    else if (size <= 1024) return 5;
+    else if (size <= 2048) return 6;
+    else if (size <= 4096) return 7;
+    else if (size <= 8192) return 8;
+    else return 9;
+}
+
 /*
  * Search for the first free block that fits the requested size
  */
@@ -183,22 +199,22 @@ static void* mem_block_size(size_t required_size)
 static void place(void* block_ptr, size_t adjusted_size)
 {
     size_t current_size = get_size(header(block_ptr));
-    size_t remaining_size = current_size - adjusted_size;
 
-    // Check if the block should be split
-    if (remaining_size >= (2 * ALIGNMENT))
+    // Only split if the remaining block size is considerably larger than needed
+    if ((current_size - adjusted_size) >= (4 * ALIGNMENT))  // Larger threshold to avoid frequent splitting
     {
-        // Allocate the requested block size
         write_word(header(block_ptr), pack(adjusted_size, 1));
         write_word(footer(block_ptr), pack(adjusted_size, 1));
 
-        // Update the pointer and create the remaining free block
-        void* next_block_ptr = next_block(block_ptr);
-        write_word(header(next_block_ptr), pack(remaining_size, 0));
-        write_word(footer(next_block_ptr), pack(remaining_size, 0));
-    } else
+        // Create a free block with the remaining space
+        block_ptr = next_block(block_ptr);
+        size_t remaining_size = current_size - adjusted_size;
+        write_word(header(block_ptr), pack(remaining_size, 0));
+        write_word(footer(block_ptr), pack(remaining_size, 0));
+    }
+    else
     {
-        // Allocate the entire block if splitting isn't possible
+        // Allocate the entire block if splitting isn't necessary
         write_word(header(block_ptr), pack(current_size, 1));
         write_word(footer(block_ptr), pack(current_size, 1));
     }
@@ -275,26 +291,22 @@ static void *coalesce_mem(void *block_ptr)
 static void *extend_heap(size_t words)
 {
     // Round up the word count to the nearest even number for alignment
-    size_t size = (words + 1) & ~1;  // Efficiently align size by rounding up if odd
-    size *= WORD_SIZE;  // Convert to bytes
+    size_t extend_size = smaller_blk_size(words * WORD_SIZE, 
+    HEAP_EXTENSION * HEAP_EXTENSION);
+    void* block_ptr = mem_sbrk(extend_size);
 
-    // Request additional memory from the system
-    void *block_ptr = mem_sbrk(size);
     if (block_ptr == (void*) -1)
     {
-        return NULL;  // If memory allocation fails, return NULL
+        return NULL;  // If memory allocation fails
     }
 
-    // Set up block header and footer for the new free block
-    write_word(header(block_ptr), pack(size, 0));  // Free block header
-    write_word(footer(block_ptr), pack(size, 0));  // Free block footer
+    // Initialize the free block and the epilogue header
+    write_word(header(block_ptr), pack(extend_size, 0));  // Free block header
+    write_word(footer(block_ptr), pack(extend_size, 0));  // Free block footer
 
-    // Create a new epilogue block header
-    void *next_block_ptr = next_block(block_ptr);
-    write_word(header(next_block_ptr), pack(0, 1));  // Epilogue header
+    write_word(header(next_block(block_ptr)), pack(0, 1));  // New epilogue header
 
-    // Return coalesced block if needed
-    return coalesce_mem(block_ptr);
+    return coalesce_mem(block_ptr);  // Coalesce if necessary
 }
 
 /*
@@ -328,12 +340,13 @@ bool mm_init(void)
     // Initialize the epilogue header
     write_word(prologue_ptr + (3 * WORD_SIZE), pack(0, 1));  // Epilogue header
 
-    // Extra useless pointer arithmetic
+    // Add padding for prologue_ptr -> heap_list_ptr
     prologue_ptr += WORD_SIZE;
     heap_list_ptr = prologue_ptr + WORD_SIZE;
 
-    // Extend the heap with a free block of CHUNKSIZE
-    if (extend_heap(HEAP_EXTENSION / WORD_SIZE) == NULL)
+    // Extend the heap with a free block
+    void* block = extend_heap(HEAP_EXTENSION / WORD_SIZE);
+    if (!block)
     {
         return false;
     }
