@@ -397,21 +397,26 @@ void* malloc(size_t size)
 void free(void* ptr)
 {
     /* IMPLEMENT THIS */
-    // If the pointer is NULL, there's nothing to free
-    if (ptr == NULL)
+    // Return immediately if the pointer is NULL
+    if (!ptr)
     {
         return;
     }
 
-    // Retrieve the size of the block
+    // Retrieve the size of the block using the header
     size_t size = get_size(header(ptr));
 
-    // Mark the block as free by updating its header and footer
-    write_word(header(ptr), pack(size, 0));  // Free block header
-    write_word(footer(ptr), pack(size, 0));  // Free block footer
+    // Mark the block as free by updating the header
+    write_word(header(ptr), pack(size, 0));
 
-    // Coalesce adjacent free blocks if possible
-    coalesce_mem(ptr);
+    // Update the footer with the new free block size
+    write_word(footer(ptr), pack(size, 0));
+
+    // Attempt to coalesce adjacent free blocks
+    void* coalesced_ptr = coalesce_mem(ptr);
+
+    // Optionally add the coalesced block back to the free list
+    coalesce_mem(coalesced_ptr);
 }
 
 
