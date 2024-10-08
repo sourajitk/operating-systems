@@ -144,6 +144,57 @@ static size_t align(size_t x)
 }
 
 /*
+ * Code for the function memory coalescing. Basically the purpose of 
+ * he coalescing is to free up adjacent blocks of memory into
+ * one contiguous block of memory. We will be using this to 
+ * make sure we can combine the free memory so it can be used
+ * by the trace driver for the sample data.
+ * 
+ * Here, the memory blocks store both their size and an allocated
+ * bit in the same word.
+ * 
+ */
+static void *coalesce_mem(void *block_ptr)
+{
+
+    /* 
+     * Define the allocation structure
+     * The idea here is to make sure we get the data about:
+     * prev_alloc gets us the memory pointer for the previous block
+     * next_alloc gets us the next allocation
+     * Finally, we have size to get the size of the header block pointer
+     */
+
+    size_t prev_alloc = get_alloc(footer(prev_block(block_ptr)));
+    size_t next_alloc = get_alloc(header(next_block(block_ptr)));
+    size_t size = get_size(header(block_ptr));
+
+    // First, we check if the 
+    if (prev_alloc && next_alloc) {
+        return block_ptr;
+    } else if (prev_alloc && !next_alloc) {
+        // Update size of the block after retrieving it from the pointer
+        size += get_size(header(next_block(block_ptr)));
+        write_word(header(block_ptr), pack(size, 0));  // Update current block's header
+        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
+    } else if (!prev_alloc && next_alloc) {
+        size += get_size(header(prev_block(block_ptr)));
+        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
+        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
+        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
+    } else {
+        size += get_size(header(prev_block(block_ptr))) + get_size(footer(next_block(block_ptr)));
+        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
+        write_word(footer(next_block(block_ptr)), pack(size, 0));  // Update next block's footer
+        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
+    }
+
+    return block_ptr;
+
+}
+
+
+/*
  * Implement a way to extend the size of the heap with a new free block
 */
 static void *extend_heap(size_t words)
@@ -216,35 +267,23 @@ bool mm_init(void)
 void* malloc(size_t size)
 {
     /* IMPLEMENT THIS */
-    // Align the requested size
-    const size_t size_mm = align(size);
+    size_t adjusted_size;    // Adjusted block size
     
-    // Define the node struct to manage memory blocks
-    struct node_t *node;
-    
-    // Check if the aligned size is valid (greater than 0)
-    if (size_mm == 0) {
+    // Ignore size 0 requests
+    if (size == 0)
+    {
         return NULL;
     }
 
-    // Search for a suitable free block (implementation dependent)
-    node = find_free_block(size_mm);
-
-    if (node != NULL) {
-        // Suitable free block found, remove it from the free list and allocate it
-        remove_from_free_list(node);
-        node->size = size_mm;
-    } else {
-        // No suitable block found, extend the heap
-        node = extend_heap(size_mm);
-        if (node == NULL) {
-            return NULL;
-        }
-        node->size = size_mm;
+    // Adjust block size to include overhead and alignment
+    if (size <= ALIGNMENT)
+    {
+        adjusted_size = 2 * ALIGNMENT;  // Minimum block size
     }
-
-    // Return the pointer to the allocated memory (after the metadata/header)
-    return (void*)(node + 1);
+    else
+    {
+        adjusted_size = align(size + 2 * WORD_SIZE);  // Align size plus overhead
+    }
 
 }
 
@@ -269,56 +308,6 @@ void free(void* ptr)
 
     // Coalesce adjacent free blocks if possible
     coalesce_mem(ptr);
-}
-
-/*
- * Code for the function memory coalescing. Basically the purpose of 
- * he coalescing is to free up adjacent blocks of memory into
- * one contiguous block of memory. We will be using this to 
- * make sure we can combine the free memory so it can be used
- * by the trace driver for the sample data.
- * 
- * Here, the memory blocks store both their size and an allocated
- * bit in the same word.
- * 
- */
-static void *coalesce_mem(void *block_ptr)
-{
-
-    /* 
-     * Define the allocation structure
-     * The idea here is to make sure we get the data about:
-     * prev_alloc gets us the memory pointer for the previous block
-     * next_alloc gets us the next allocation
-     * Finally, we have size to get the size of the header block pointer
-     */
-
-    size_t prev_alloc = get_alloc(footer(prev_block(block_ptr)));
-    size_t next_alloc = get_alloc(header(next_block(block_ptr)));
-    size_t size = get_size(header(block_ptr));
-
-    // First, we check if the 
-    if (prev_alloc && next_alloc) {
-        return block_ptr;
-    } else if (prev_alloc && !next_alloc) {
-        // Update size of the block after retrieving it from the pointer
-        size += get_size(header(next_block(block_ptr)));
-        write_word(header(block_ptr), pack(size, 0));  // Update current block's header
-        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
-    } else if (!prev_alloc && next_alloc) {
-        size += get_size(header(prev_block(block_ptr)));
-        write_word(footer(block_ptr), pack(size, 0));  // Update current block's footer
-        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
-        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
-    } else {
-        size += get_size(header(prev_block(block_ptr))) + get_size(footer(next_block(block_ptr)));
-        write_word(header(prev_block(block_ptr)), pack(size, 0));  // Update previous block's header
-        write_word(footer(next_block(block_ptr)), pack(size, 0));  // Update next block's footer
-        block_ptr = prev_block(block_ptr);  // Move pointer to previous block
-    }
-
-    return block_ptr;
-
 }
 
 
@@ -348,18 +337,19 @@ void* realloc(void* oldptr, size_t size)
     new_ptr = malloc(size);
     if (new_ptr == NULL)
     {
-        return NULL;  // Allocation failed
+        return NULL; 
     }
 
     // Copy data from the old block to the new one
     old_size = get_size(header(oldptr));
     if (old_size > size)
     {
-        old_size = size;  // Copy only up to the new size
+        old_size = size;
     }
 
     mem_memcpy(new_ptr, oldptr, old_size);
-    free(oldptr);  // Free the old block
+    // Free the old block
+    free(oldptr);
 
     return new_ptr;
 }
