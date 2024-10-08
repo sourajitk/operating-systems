@@ -143,6 +143,63 @@ static size_t align(size_t x)
     return ALIGNMENT * ((x+ALIGNMENT-1)/ALIGNMENT);
 }
 
+// Find the smaller size of the size_t arguments
+static size_t smaller_blk_size(size_t x, size_t y){
+    if (x <= y) {
+        return x;
+    }
+    else {
+        return y;
+    }
+}
+
+/*
+ * Find a free block that fits the requested size
+ */
+static void* find_fit(size_t adjusted_size)
+{
+    void* block_ptr;
+
+    // First fit search through the heap
+    for (block_ptr = heap_list_ptr; get_size(header(block_ptr)) > 0; block_ptr = next_block(block_ptr))
+    {
+        if (!get_alloc(header(block_ptr)) && (adjusted_size <= get_size(header(block_ptr))))
+        {
+            return block_ptr;
+        }
+    }
+
+    return NULL;  // No suitable free block found
+}
+
+/*
+ * Place the requested block at the start of the free block
+ * and split the block if the remainder is large enough
+ */
+static void place(void* block_ptr, size_t adjusted_size)
+{
+    size_t current_size = get_size(header(block_ptr));
+
+    if ((current_size - adjusted_size) >= (2 * ALIGNMENT))
+    {
+        // Split the block if the remainder is large enough
+        write_word(header(block_ptr), pack(adjusted_size, 1));
+        write_word(footer(block_ptr), pack(adjusted_size, 1));
+
+        block_ptr = next_block(block_ptr);
+        write_word(header(block_ptr), pack(current_size - adjusted_size, 0));
+        write_word(footer(block_ptr), pack(current_size - adjusted_size, 0));
+    }
+    else
+    {
+        // No split, just allocate the entire block
+        write_word(header(block_ptr), pack(current_size, 1));
+        write_word(footer(block_ptr), pack(current_size, 1));
+    }
+}
+
+
+
 /*
  * Code for the function memory coalescing. Basically the purpose of 
  * he coalescing is to free up adjacent blocks of memory into
@@ -268,7 +325,9 @@ void* malloc(size_t size)
 {
     /* IMPLEMENT THIS */
     size_t adjusted_size;    // Adjusted block size
-    
+    size_t extend_size;      // Amount to extend heap if no fit is found
+    char* block_ptr;
+
     // Ignore size 0 requests
     if (size == 0)
     {
@@ -285,7 +344,26 @@ void* malloc(size_t size)
         adjusted_size = align(size + 2 * WORD_SIZE);  // Align size plus overhead
     }
 
+    // Search the free list for a suitable block
+    block_ptr = find_fit(adjusted_size);
+    if (block_ptr != NULL)
+    {
+        place(block_ptr, adjusted_size);
+        return block_ptr;
+    }
+
+    // No fit found, extend the heap and place the block
+    extend_size = smaller_blk_size(adjusted_size, HEAP_EXTENSION);
+    block_ptr = extend_heap(extend_size);
+    if (block_ptr == NULL)
+    {
+        return NULL;  // Failed to extend heap
+    }
+
+    place(block_ptr, adjusted_size);
+    return block_ptr;
 }
+
 
 /*
  * free
