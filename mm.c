@@ -10,7 +10,13 @@
  * NOTE TO STUDENTS: Replace this header comment with your own header
  * comment that gives a high level description of your solution.
  * Also, read malloclab.pdf carefully and in its entirety before beginning.
- *
+ * 
+ * References:
+ * https://danluu.com/malloc-tutorial/
+ * https://www.tutorialspoint.com/c_standard_library/c_function_malloc.htm
+ * https://manual.cs50.io/3/malloc
+ * https://man7.org/linux/man-pages/man3/malloc.3.html
+ * 
  */
 #include <assert.h>
 #include <stdio.h>
