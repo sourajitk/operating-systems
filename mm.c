@@ -486,7 +486,34 @@ void free(void* ptr)
  */
 static void remove_from_tree(void *block_ptr) 
 {
-    return;
+    size_t block_size = get_size(header(block_ptr));
+    int list_index = 0;
+
+    // Find the appropriate size class for the block
+    while (block_size > 1 && list_index < ALIGNMENT - 1)
+    {
+        block_size >>= 1;
+        list_index++;
+    }
+
+    void *prev_block = get_previous_block(block_ptr);
+    void *next_block = get_next_block(block_ptr);
+
+    // Case 1: The block is in the middle or front
+    if (prev_block != NULL)
+    {
+        set_block_pointer(get_next_pointer(prev_block), next_block);
+    }
+    else
+    {
+        free_list[list_index] = next_block;  // The block is at the head
+    }
+
+    // Case 2: The block is in the middle or back
+    if (next_block != NULL)
+    {
+        set_block_pointer(get_previous_pointer(next_block), prev_block);
+    }
 }
 
 /*
