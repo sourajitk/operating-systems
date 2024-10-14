@@ -75,9 +75,10 @@
 #define HEAP_MULTIPLIER 2           // Extend heap by this multiple of the requested size
 
 // GLobal variables [TODO]
-static char *heap_list_ptr;          // The first pointer to the heap block
-static int size_class_value = 16;    // Total number of size classes used in memory allocator
-
+static char *heap_list_ptr;                                      // The first pointer to the heap block
+static int size_class_value = 16;                                // Total number of size classes used in memory allocator
+static void remove_from_tree(void *block_ptr);                   // Removes a given pointer from the tree we are building
+static void insert_to_tree(void *block_ptr, size_t block_size); // Adds a given pointer to the tree we are building
 
 // Use static inline functions instead of using macros. [TODO]
 // Pack size and allocation bit into a single word to store in the header/footer
@@ -477,6 +478,16 @@ void free(void* ptr)
 
     // Optionally add the coalesced block back to the free list
     coalesce_mem(coalesced_ptr);
+}
+
+static void remove_to_tree(void *block_ptr) 
+{
+    return NULL;
+}
+
+static void insert_to_tree(void *block_ptr, size_t block_size) 
+{
+    return NULL;
 }
 
 
