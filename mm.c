@@ -16,6 +16,7 @@
  * https://www.tutorialspoint.com/c_standard_library/c_function_malloc.htm
  * https://manual.cs50.io/3/malloc
  * https://man7.org/linux/man-pages/man3/malloc.3.html
+ * Randal E. Bryant and David R. O'Hallaron. 2015. Computer Systems: A Programmer's Perspective (3rd. ed.). Pearson. [Book]
  * 
  */
 #include <assert.h>
@@ -75,7 +76,8 @@
 
 // GLobal variables [TODO]
 static char *heap_list_ptr;          // The first pointer to the heap block
-static int size_class_value = 16;    // Total number of size classes used in memory allocator 
+static int size_class_value = 16;    // Total number of size classes used in memory allocator
+
 
 // Use static inline functions instead of using macros. [TODO]
 // Pack size and allocation bit into a single word to store in the header/footer
@@ -124,10 +126,10 @@ static inline void* header(const void* block_ptr)
 
 // Given a block pointer, compute the address of the block's footer
 // The footer is located at the end of the block
+// Footer is located at block size minus ALIGNMENT (16 bytes)
 static inline void* footer(const void* block_ptr) 
 {
     return (void*)((char*)block_ptr + get_size(header(block_ptr)) - ALIGNMENT);
-    // Footer is located at block size minus ALIGNMENT (16 bytes)
 }
 
 // Compute the address of the next block in the heap
@@ -137,12 +139,47 @@ static inline void* next_block(const void* block_ptr)
     return (void*)((char*)block_ptr + get_size(header(block_ptr)));  // Add the current block size to get the next block
 }
 
+// Compute the address of the previous pointer stored in the block
+static void* get_previous_pointer(void* block_ptr)
+{
+    // The address of the previous pointer is stored at the start of the block
+    return (char *)(block_ptr);
+}
+
+// Compute the address of the next pointer stored in the block
+static void* get_next_pointer(void* block_ptr)
+{
+    // The address of the next pointer is stored at WORD_SIZE bytes offset from the block
+    return ((char *)(block_ptr) + WORD_SIZE);
+}
+
+// Dereference the pointer stored at the previous pointer location
+static void* get_previous_block(void* block_ptr)
+{
+    // Dereference the address to get the actual previous block pointer
+    return (*(char **)(block_ptr));
+}
+
+// Dereference the pointer stored at the next pointer location
+static void* get_next_block(void* block_ptr)
+{
+    // Get the next pointer using get_next_pointer, then dereference it to get the next block
+    return (*(char **)(get_next_pointer(block_ptr)));
+}
+
+// Set the value of a pointer (stored in a block)
+static void set_block_pointer(void* block_ptr, void* target_ptr)
+{
+    // Set the pointer at the specified location to point to target_ptr
+    (*(uint64_t* )(block_ptr) = (uint64_t)(target_ptr));
+}
+
 // Compute the address of the previous block in the heap
 // The previous block ends just before the current block
+// Move backward by the size of the previous block to locate its start
 static inline void* prev_block(const void* block_ptr) 
 {
     return (void*)((char*)block_ptr - get_size((char*)block_ptr - ALIGNMENT));  
-    // Move backward by the size of the previous block to locate its start
 }
 
 /* rounds up to the nearest multiple of ALIGNMENT */
