@@ -76,9 +76,9 @@
 
 // GLobal variables [TODO]
 static char *heap_list_ptr;                                      // The first pointer to the heap block
-static int size_class_value = 16;                                // Total number of size classes used in memory allocator
 static void remove_from_tree(void *block_ptr);                   // Removes a given pointer from the tree we are building
-static void insert_to_tree(void *block_ptr, size_t block_size); // Adds a given pointer to the tree we are building
+static void insert_to_tree(void *block_ptr, size_t block_size);  // Adds a given pointer to the tree we are building
+void *free_list[ALIGNMENT];
 
 // Use static inline functions instead of using macros. [TODO]
 // Pack size and allocation bit into a single word to store in the header/footer
@@ -480,16 +480,50 @@ void free(void* ptr)
     coalesce_mem(coalesced_ptr);
 }
 
+/*
+ * The plan here is to create a list that we can use to traverse
+ * between various points to make sure we can 
+ */
 static void remove_to_tree(void *block_ptr) 
 {
-    return NULL;
+    return;
 }
 
-static void insert_to_tree(void *block_ptr, size_t block_size) 
+/*
+ * Insert a block into the appropriate segregated free list
+ */
+static void insert_node(void *block_ptr, size_t block_size)
 {
-    return NULL;
-}
+    // Determine size class based on block size
+    int size_class = 0;
+    while ((block_size > 1) && (size_class < ALIGNMENT - 1))
+    {
+        block_size >>= 1;
+        size_class++;
+    }
 
+    // Search for the correct position in the free list
+    void *search_ptr = free_list[size_class];
+    void *insert_ptr = NULL;
+
+    while (search_ptr && (block_size > get_size(header(search_ptr))))
+    {
+        insert_ptr = search_ptr;
+        search_ptr = get_previous_block(search_ptr);
+    }
+
+    // Insert block in the appropriate position
+    set_block_pointer(get_previous_pointer(block_ptr), search_ptr);
+    set_block_pointer(get_next_pointer(block_ptr), insert_ptr);
+
+    if (insert_ptr)
+        set_block_pointer(get_previous_pointer(insert_ptr), block_ptr);
+    else
+        free_list[size_class] = block_ptr;
+
+    if (search_ptr)
+        set_block_pointer(get_next_pointer(search_ptr), block_ptr);
+}
 
 /*
  * realloc
