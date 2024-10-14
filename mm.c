@@ -74,7 +74,8 @@
 #define HEAP_MULTIPLIER 2           // Extend heap by this multiple of the requested size
 
 // GLobal variables [TODO]
-static char *heap_list_ptr;     // The first pointer to the heap block
+static char *heap_list_ptr;          // The first pointer to the heap block
+static int size_class_value = 16;    // Total number of size classes used in memory allocator 
 
 // Use static inline functions instead of using macros. [TODO]
 // Pack size and allocation bit into a single word to store in the header/footer
@@ -88,14 +89,14 @@ static inline size_t pack(size_t block_size, size_t allocated)
 static inline uint64_t read_word(const void* ptr) 
 {
     // Dereference the pointer to get the stored value
-    return (*(const uint64_t*)(ptr));
+    return (*(size_t*)(ptr));
 }
 
 // Write a value (block size and allocated bit) to the address pointed by ptr
 static inline void write_word(void* ptr, size_t value) 
 {
     // Store the value at the memory address pointed by ptr
-    (*(uint64_t*)(ptr) = value);  
+    (*(size_t*)(ptr) = value);  
 }
 
 // Extract the block size from the header or footer
@@ -163,16 +164,16 @@ static size_t smaller_blk_size(size_t x, size_t y){
 // Function to select the appropriate size class [TODO for checkpoint 2]
 int get_size_class(size_t size)
 {
-    if (size <= 32) return 0;
-    else if (size <= 64) return 1;
-    else if (size <= 128) return 2;
-    else if (size <= 256) return 3;
-    else if (size <= 512) return 4;
-    else if (size <= 1024) return 5;
-    else if (size <= 2048) return 6;
-    else if (size <= 4096) return 7;
-    else if (size <= 8192) return 8;
-    else return 9;
+    if (size <= 32) return 0;         // Class 0: 32 bytes or less
+    else if (size <= 64) return 1;    // Class 1: 33-64 bytes
+    else if (size <= 128) return 2;   // Class 2: 65-128 bytes
+    else if (size <= 256) return 3;   // Class 3: 129-256 bytes
+    else if (size <= 512) return 4;   // Class 4: 257-512 bytes
+    else if (size <= 1024) return 5;  // Class 5: 513-1024 bytes
+    else if (size <= 2048) return 6;  // Class 6: 1025-2048 bytes
+    else if (size <= 4096) return 7;  // Class 7: 2049-4096 bytes
+    else if (size <= 8192) return 8;  // Class 8: 4097-8192 bytes
+    else return 9;                    // Class 9: Above 8192 bytes
 }
 
 /*
