@@ -484,7 +484,7 @@ void free(void* ptr)
  * The plan here is to create a list that we can use to traverse
  * between various points to make sure we can 
  */
-static void remove_to_tree(void *block_ptr) 
+static void remove_from_tree(void *block_ptr) 
 {
     return;
 }
@@ -492,7 +492,7 @@ static void remove_to_tree(void *block_ptr)
 /*
  * Insert a block into the appropriate segregated free list
  */
-static void insert_node(void *block_ptr, size_t block_size)
+static void insert_to_tree(void *block_ptr, size_t block_size)
 {
     // Determine size class based on block size
     int size_class = 0;
@@ -517,12 +517,17 @@ static void insert_node(void *block_ptr, size_t block_size)
     set_block_pointer(get_next_pointer(block_ptr), insert_ptr);
 
     if (insert_ptr)
+    {
         set_block_pointer(get_previous_pointer(insert_ptr), block_ptr);
-    else
+    }
+    else {
         free_list[size_class] = block_ptr;
+    }
 
     if (search_ptr)
+    {
         set_block_pointer(get_next_pointer(search_ptr), block_ptr);
+    }
 }
 
 /*
