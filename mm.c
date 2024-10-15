@@ -70,9 +70,11 @@
 #define ALIGNMENT 16
 
 // Define some constants
-#define WORD_SIZE  8                // Word and header/footer size
-#define HEAP_EXTENSION 4096         // Extend heap by 4096 bytes
-#define HEAP_MULTIPLIER 2           // Extend heap by this multiple of the requested size
+#define WORD_SIZE  8                   // Word and header/footer size
+#define HEAP_EXTENSION 4096            // Extend heap by 4096 bytes
+#define HEAP_MULTIPLIER 2              // Extend heap by this multiple of the requested size
+#define MIN_BLOCK_SIZE 2               // Smallest possible size for a free block
+#define MAX_LIST_POS  (ALIGNMENT - 1)  // Constant for highest position in the segregated list
 
 // GLobal variables [TODO]
 static char *heap_list_ptr;                                      // The first pointer to the heap block
@@ -519,41 +521,53 @@ static void remove_from_tree(void *block_ptr)
 /*
  * Insert a block into the appropriate segregated free list
  */
-static void insert_to_tree(void *block_ptr, size_t block_size)
-{
-    // Determine size class based on block size
-    int size_class = 0;
-    while ((block_size > 1) && (size_class < ALIGNMENT - 1))
-    {
-        block_size >>= 1;
-        size_class++;
+static void insert_to_tree(void *block_ptr, size_t block_size) {
+    // Determine the appropriate list position based on block size
+    int header_position = 0;
+    while (block_size > 1 && header_position < MAX_LIST_POS) {
+        block_size /= 2;
+        header_position++;
     }
 
-    // Search for the correct position in the free list
-    void *search_ptr = free_list[size_class];
-    void *insert_ptr = NULL;
+    // Get the head of the segregated free list for this size class
+    void *tree_tip = free_list[header_position];
 
-    while (search_ptr && (block_size > get_size(header(search_ptr))))
-    {
-        insert_ptr = search_ptr;
-        search_ptr = get_previous_block(search_ptr);
+    // If the list is empty, insert block at the head
+    if (tree_tip == NULL) {
+        // Since this is the only block in the list, both pointers are NULL
+        free_list[header_position] = block_ptr;
+        
+        // Set both the previous and next pointers of the block to NULL in one step
+        set_block_pointer(get_previous_pointer(block_ptr), NULL);
+        set_block_pointer(get_next_pointer(block_ptr), NULL);
+        
+        return;  // Exit after insertion
     }
 
-    // Insert block in the appropriate position
-    set_block_pointer(get_previous_pointer(block_ptr), search_ptr);
-    set_block_pointer(get_next_pointer(block_ptr), insert_ptr);
+    // Traverse the list and find the correct position to insert the block
+    void *current_ptr = tree_tip;
+    void *prev_ptr = NULL;
 
-    if (insert_ptr)
-    {
-        set_block_pointer(get_previous_pointer(insert_ptr), block_ptr);
-    }
-    else {
-        free_list[size_class] = block_ptr;
+    while (current_ptr != NULL && get_size(header(current_ptr)) < get_size(header(block_ptr))) {
+        prev_ptr = current_ptr;
+        current_ptr = get_previous_block(current_ptr);
     }
 
-    if (search_ptr)
-    {
-        set_block_pointer(get_next_pointer(search_ptr), block_ptr);
+    // Insert the block into the correct position
+    set_block_pointer(get_previous_pointer(block_ptr), current_ptr);
+    set_block_pointer(get_next_pointer(block_ptr), prev_ptr);
+
+    // If inserting at the head of the list
+    if (!prev_ptr) {
+        free_list[header_position] = block_ptr;
+    } else {
+        // Otherwise, update the previous block's next pointer
+        set_block_pointer(get_previous_pointer(prev_ptr), block_ptr);
+    }
+
+    // If there's a next block, update its previous pointer
+    if (current_ptr != NULL) {
+        set_block_pointer(get_next_pointer(current_ptr), block_ptr);
     }
 }
 
