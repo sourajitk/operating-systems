@@ -469,17 +469,15 @@ void free(void* ptr)
     // Retrieve the size of the block using the header
     size_t size = get_size(header(ptr));
 
-    // Mark the block as free by updating the header
-    write_word(header(ptr), pack(size, 0));
+    // Mark the block as free by writing the header and footer
+    write_word(header(ptr), pack(size, 0));  // Set the header as free
+    write_word(footer(ptr), pack(size, 0));  // Set the footer as free
 
-    // Update the footer with the new free block size
-    write_word(footer(ptr), pack(size, 0));
+    // Insert the block back into the segregated free list
+    insert_to_tree(ptr, size);
 
-    // Attempt to coalesce adjacent free blocks
-    void* coalesced_ptr = coalesce_mem(ptr);
-
-    // Optionally add the coalesced block back to the free list
-    coalesce_mem(coalesced_ptr);
+    // Coalesce the block with adjacent free blocks
+    coalesce_mem(ptr);
 }
 
 /*
@@ -525,7 +523,7 @@ static void insert_to_tree(void *block_ptr, size_t block_size) {
     // Determine the appropriate list position based on block size
     int header_position = 0;
     while (block_size > 1 && header_position < MAX_LIST_POS) {
-        block_size /= 2;
+        block_size = block_size / 2;
         header_position++;
     }
 
