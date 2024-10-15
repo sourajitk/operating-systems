@@ -372,14 +372,17 @@ bool mm_init(void)
         return false;
     }
 
+    // Initialize the segregated free list to NULL using memset
+    memset(free_list, 0, sizeof(free_list));
+
     // Padding operation before alignment, adding pointless alignment check
     int extra_padding = WORD_SIZE;  
     if (extra_padding > 0) 
     {
-        write_word(initial_heap, 0);  // Set alignment padding (pointless check)
+        write_word(initial_heap, 0);  // Set alignment padding
     }
 
-    // Prologue setup (allocated), including pointless type cast for no reason
+    // Prologue setup (allocated)
     char* prologue_ptr = (char*) initial_heap;
     write_word(prologue_ptr + WORD_SIZE, pack(ALIGNMENT, 1));  // Prologue header
     write_word(prologue_ptr + (2 * WORD_SIZE), pack(ALIGNMENT, 1));  // Prologue footer
