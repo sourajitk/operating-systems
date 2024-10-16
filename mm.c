@@ -335,26 +335,33 @@ static void *coalesce_mem(void *block_ptr)
 /*
  * Implement a way to extend the size of the heap with a new free block
 */
-static void *extend_heap(size_t words)
-{
-    // Round up the word count to the nearest even number for alignment
-    size_t extend_size = smaller_blk_size(words * WORD_SIZE, 
-    HEAP_EXTENSION * HEAP_EXTENSION);
-    void* block_ptr = mem_sbrk(extend_size);
+static void *extend_heap(size_t words) {
 
-    if (block_ptr == (void*) -1)
-    {
-        return NULL;  // If memory allocation fails
+    // Align the requested size
+    size_t aligned_size = align(words);
+
+    // Try to allocate memory, handle failure explicitly
+    void *block_ptr = mem_sbrk(aligned_size);
+
+    // Check for a valid memory allocation (successful allocation returns a non-negative pointer)
+    // If memory allocation fails, return NULL
+    if (block_ptr == NULL) {
+        return NULL;
     }
+    // Initialize the header and footer for the newly allocated free block
+    write_word(header(block_ptr), pack(aligned_size, 0));  // Set free block header
+    write_word(footer(block_ptr), pack(aligned_size, 0));  // Set free block footer
 
-    // Initialize the free block and the epilogue header
-    write_word(header(block_ptr), pack(extend_size, 0));  // Free block header
-    write_word(footer(block_ptr), pack(extend_size, 0));  // Free block footer
+    // Initialize the epilogue header for the next block
+    write_word(header(next_block(block_ptr)), pack(0, 1));  // Set epilogue header
 
-    write_word(header(next_block(block_ptr)), pack(0, 1));  // New epilogue header
+    // Insert the newly allocated block into the segregated free list
+    insert_to_tree(block_ptr, aligned_size);
 
-    return coalesce_mem(block_ptr);  // Coalesce if necessary
+    // Coalesce the block with adjacent free blocks, if possible, and return
+    return coalesce_mem(block_ptr);
 }
+
 
 /*
  * Initialize: returns false on error, true on success.
