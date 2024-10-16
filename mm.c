@@ -192,14 +192,30 @@ static size_t align(size_t x)
 }
 
 // Find the smaller size of the size_t arguments
-static size_t smaller_blk_size(size_t x, size_t y){
-    if (x <= y) {
+static size_t smaller_blk_size(size_t x, size_t y)
+{
+    if (x > y)
+    {
         return x;
     }
-    else {
+    else
+    {
         return y;
     }
 }
+
+// Find the bigger size of the size_t arguments
+static inline size_t bigger_blk_size(size_t x, size_t y)
+{
+    if (x < y)
+    {
+        return x;
+    } else
+    {
+        return y;
+    }
+}
+
 
 // Function to select the appropriate size class [TODO for checkpoint 2]
 int get_size_class(size_t size)
