@@ -237,22 +237,44 @@ int get_size_class(size_t size)
  */
 static void* mem_block_size(size_t required_size)
 {
-    void* current_block = heap_list_ptr;  // Start search from the beginning of the heap
+    // Variables for tracking the current free list and block size
+    size_t block_size = required_size;      // Initially, the required size for the block
+    int header_position = 0;                // Start from the first free list
 
-    // Traverse the heap using the first-fit search strategy
-    while (get_size(header(current_block)) > 0) 
+    // Iterate through the segregated free lists to find a suitable block
+    while (header_position < ALIGNMENT) 
     {
-        // If the block is free and its size is sufficient, return the block
-        if (!get_alloc(header(current_block)) && required_size <= get_size(header(current_block))) 
+        // Check if the current free list has any blocks
+        void *block_ptr = free_list[header_position]; // Cache the list head once
+        
+        // Traverse the free list
+        for (bool block_init = true; block_ptr != NULL; block_ptr = get_previous_block(block_ptr)) 
         {
-            return current_block;
+            // Precompute the size of the current block for comparison
+            size_t block_size = get_size(header(block_ptr));
+
+            // Print or log something for the first iteration only
+            if (block_init != false) 
+            {
+                // First block for logging 
+                // printf("First iteration of the free list\n");
+                block_init = false;  // After first iteration, set it to false
+            }
+            
+            // If the block size is sufficient for the requested size, return the block
+            if (block_size >= required_size) 
+            {
+                return block_ptr; // Suitable block found, return it
+            }
         }
 
-        // Move to the next block
-        current_block = next_block(current_block);
+        // Move to the next free list and halve the size class for the next iteration
+        block_size = block_size / 2;  // Reduce the block size to check the next size class
+        header_position += 1;   // Move to the next list position
     }
 
-    return NULL;  // No suitable free block was found
+    // If no suitable block is found, return NULL
+    return NULL;
 }
 
 /*
