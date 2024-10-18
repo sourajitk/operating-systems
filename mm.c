@@ -279,30 +279,43 @@ static void* mem_block_size(size_t required_size)
 
 /*
  * Place the requested block at the start of the free block
- * and split the block if the remainder is large enough
+ * and split the block if the remainder is large enough.
  */
-static void place(void* block_ptr, size_t adjusted_size)
-{
+static void *place(void *block_ptr, size_t adjusted_size) {
+    // Get the current size of the block
     size_t current_size = get_size(header(block_ptr));
 
-    // Only split if the remaining block size is considerably larger than needed
-    if ((current_size - adjusted_size) >= (4 * ALIGNMENT))  // Larger threshold to avoid frequent splitting
-    {
-        write_word(header(block_ptr), pack(adjusted_size, 1));
-        write_word(footer(block_ptr), pack(adjusted_size, 1));
+    // Calculate the remaining size after allocating the requested size
+    size_t remaining_size = current_size - adjusted_size;
 
-        // Create a free block with the remaining space
-        block_ptr = next_block(block_ptr);
-        size_t remaining_size = current_size - adjusted_size;
-        write_word(header(block_ptr), pack(remaining_size, 0));
-        write_word(footer(block_ptr), pack(remaining_size, 0));
-    }
-    else
+    // Remove the block from the free list as we are about to allocate it
+    remove_from_tree(block_ptr);
+
+    // Check if the remaining space is large enough to split the block
+    if (remaining_size >= (2 * ALIGNMENT)) 
     {
-        // Allocate the entire block if splitting isn't necessary
-        write_word(header(block_ptr), pack(current_size, 1));
-        write_word(footer(block_ptr), pack(current_size, 1));
+        // Allocate the requested size in the current block
+        write_word(header(block_ptr), pack(adjusted_size, 1));   // Mark header as allocated
+        write_word(footer(block_ptr), pack(adjusted_size, 1));   // Mark footer as allocated
+
+        // Calculate the location for the remaining free block
+        void *free_block_ptr = next_block(block_ptr);
+
+        // Set the header and footer for the new free block
+        write_word(header(free_block_ptr), pack(remaining_size, 0));  // Free block header
+        write_word(footer(free_block_ptr), pack(remaining_size, 0));  // Free block footer
+
+        // Insert the new free block into the free list
+        insert_to_tree(free_block_ptr, remaining_size);
+    } else
+    {
+        // Allocate the entire block without splitting
+        write_word(header(block_ptr), pack(current_size, 1));   // Mark the entire block as allocated
+        write_word(footer(block_ptr), pack(current_size, 1));   // Mark footer accordingly
     }
+
+    // Return the allocated block pointer
+    return block_ptr;
 }
 
 
