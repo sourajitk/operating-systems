@@ -341,45 +341,48 @@ static void *coalesce_mem(void *block_ptr)
      * Finally, we have size to get the size of the header block pointer
      */
 
-    size_t current_size = get_size(header(block_ptr));
-    bool merge_prev = false;
-    bool merge_next = false;
+    // Get allocation status of neighboring blocks
+    size_t prev_alloc = get_alloc(footer(prev_block(block_ptr)));
+    size_t next_alloc = get_alloc(header(next_block(block_ptr)));
 
-    // Mark blocks for merging based on their allocation status
-    if (!get_alloc(header(prev_block(block_ptr))))
-    {
-        merge_prev = true;
-    }
-    if (!get_alloc(header(next_block(block_ptr))))
-    {
-        merge_next = true;
+    // Case 1: No coalescing needed if both neighbors are allocated
+    if (prev_alloc && next_alloc) {
+        return block_ptr;
     }
 
-    // Merge based on the marked blocks
-    if (merge_prev && merge_next)
-    {
-        // Merge with both previous and next blocks
-        current_size += get_size(header(prev_block(block_ptr))) + get_size(footer(next_block(block_ptr)));
-        block_ptr = prev_block(block_ptr);
-    }
-    else if (merge_prev)
-    {
-        // Merge with previous block
-        current_size += get_size(header(prev_block(block_ptr)));
-        block_ptr = prev_block(block_ptr);
-    }
-    else if (merge_next)
-    {
-        // Merge with next block
-        current_size += get_size(header(next_block(block_ptr)));
+    // Remove the current block from the free list
+    remove_from_tree(block_ptr);
+
+    // Coalesce with the next block (ONLY IFnext block is free)
+    if (!next_alloc) {
+        size_t next_block_size = get_size(header(next_block(block_ptr)));
+        size_t block_size = get_size(header(block_ptr)) + next_block_size;
+
+        remove_from_tree(next_block(block_ptr));
+        write_word(header(block_ptr), pack(block_size, 0));  // Update header
+        write_word(footer(block_ptr), pack(block_size, 0));  // Update footer
     }
 
-    // Update header and footer after merging
-    write_word(header(block_ptr), pack(current_size, 0));
-    write_word(footer(block_ptr), pack(current_size, 0));
+    // Coalesce with the previous block (ONLY IF previous block is free)
+    if (!prev_alloc) {
+        // Store the previous block pointer to avoid recalculating it multiple times
+        void *prev_block_ptr = prev_block(block_ptr);
 
-    return block_ptr;
+        // Calculate the combined block size by getting the sizes of the current and previous blocks
+        size_t prev_block_size = get_size(header(prev_block_ptr));
+        size_t block_size = get_size(header(block_ptr)) + prev_block_size;
 
+        remove_from_tree(prev_block(block_ptr));
+        write_word(footer(block_ptr), pack(block_size, 0));              // Update footer
+        write_word(header(prev_block(block_ptr)), pack(block_size, 0));  // Update previous block header
+
+        block_ptr = prev_block(block_ptr);  // Move block pointer to previous block
+    }
+
+    // Insert the coalesced block back into the free list
+    insert_to_tree(block_ptr, get_size(header(block_ptr)));
+
+    return block_ptr;  // Return the pointer to the coalesced block
 }
 
 
