@@ -643,73 +643,42 @@ static void insert_to_tree(void *block_ptr, size_t block_size) {
 }
 
 /*
- * realloc
+ * realloc: reallocates a block of memory
  */
 void* realloc(void* oldptr, size_t size)
 {
-    /* IMPLEMENT THIS */
-    // If pointer is NULL, directly allocate new memory (acts like malloc)
-    if (!oldptr)
+    // If oldptr is NULL, equivalent to malloc(size)
+    if (!oldptr) 
     {
         return malloc(size);
     }
 
-    // If the size is 0, free the block and return NULL
-    if (size == 0)
+    // If size is 0, free the block and return NULL
+    if (size == 0) 
     {
         free(oldptr);
         return NULL;
     }
 
-    // Try shrinking or extending in place if possible
-    size_t old_size = get_size(header(oldptr));
-
-    // If the new size is smaller or equal, shrink in place
-    if (size <= old_size)
+    // Allocate a new block with the requested size
+    void* mem_ptr = malloc(size);
+    if (!mem_ptr) 
     {
-        if (old_size - size >= 32)
-        {
-            // Split the block to free the remaining space
-            size_t remaining_size = old_size - size;
-            write_word(header(oldptr), pack(size, 1));  // Shrink the current block
-            write_word(footer(oldptr), pack(size, 1));
-
-            // Create a new free block in the remaining space
-            void* new_free_block = next_block(oldptr);
-            write_word(header(new_free_block), pack(remaining_size, 0));
-            write_word(footer(new_free_block), pack(remaining_size, 0));
-        }
-        return oldptr;  // Return the same pointer if resized in place
+        return NULL;
     }
 
-    // Extend if adjacent free block is available
-    void* next_block_ptr = next_block(oldptr);
-    if (!get_alloc(header(next_block_ptr)))
-    {
-        size_t next_block_size = get_size(header(next_block_ptr));
-        if ((old_size + next_block_size) >= size)
-        {
-            // Merge the two blocks
-            size_t total_size = old_size + next_block_size;
-            write_word(header(oldptr), pack(total_size, 1));
-            write_word(footer(oldptr), pack(total_size, 1));
-            return oldptr;  // Resized in place by merging
-        }
-    }
+    // Copy the old data to the new block
+    size_t prev_allocation_size = get_size(header(oldptr));  // Get the size of the old block
+    // Use the static min function for clarity
+    size_t copy_size = bigger_blk_size(prev_allocation_size, size);
 
-    // Allocate new memory if in-place resizing is not possible
-    void* newptr = malloc(size);
-    if (!newptr)
-    {
-        return NULL;  // Allocation failed
-    }
+    // Use memcpy to copy old memory to the new block
+    memcpy(mem_ptr, oldptr, copy_size);
 
-    // Copy data from old block to new block manually
-    mem_memcpy(newptr, oldptr, old_size);
-
-    // Free the old block after copying data
+    // Free the old block
     free(oldptr);
-    return newptr;
+
+    return mem_ptr;  // Return the new block
 }
 
 /*
