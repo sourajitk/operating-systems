@@ -244,10 +244,13 @@ static void* mem_block_size(size_t required_size)
     // Iterate through the segregated free lists to find a suitable block
     while (header_position < ALIGNMENT) 
     {
-        // Check if the current free list has any blocks
-        void *block_ptr = free_list[header_position]; // Cache the list head once
-        
-        // Traverse the free list
+        // Check if the current free list is not empty and block size is acceptable
+        if (free_list[header_position] != NULL && block_size <= 1) 
+        {
+            void *block_ptr = NULL;
+            block_ptr = free_list[header_position];
+
+        // Traverse the free list to find a block large enough for the requested size
         for (bool block_init = true; block_ptr != NULL; block_ptr = get_previous_block(block_ptr)) 
         {
             if (required_size <= get_size(header(block_ptr))) 
