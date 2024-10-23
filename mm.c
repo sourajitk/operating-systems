@@ -250,9 +250,11 @@ static void* mem_block_size(size_t required_size)
         // Traverse the free list
         for (bool block_init = true; block_ptr != NULL; block_ptr = get_previous_block(block_ptr)) 
         {
-            // Precompute the size of the current block for comparison
-            size_t block_size = get_size(header(block_ptr));
-
+            if (required_size <= get_size(header(block_ptr))) 
+            {
+                // Suitable block found, return immediately
+                return block_ptr;
+            }
             // Print or log something for the first iteration only
             if (block_init != false) 
             {
@@ -260,7 +262,7 @@ static void* mem_block_size(size_t required_size)
                 // printf("First iteration of the free list\n");
                 block_init = false;  // After first iteration, set it to false
             }
-            
+        }
             // If the block size is sufficient for the requested size, return the block
             if (block_size >= required_size) 
             {
