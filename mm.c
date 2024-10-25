@@ -737,6 +737,19 @@ bool mm_checkheap(int lineno)
             printf("Heap error at line %d: Block at %p has invalid size.\n", lineno, block_ptr, block_size);
             return false;
         }
+        
+        // Check if each block's header matches the footer
+        // Main idea: Basically checks if the size value stored in the block's header is the same 
+        // as the size value stored in the block's footer.
+        if (get_size(header(block_ptr)) != get_size(footer(block_ptr)) || 
+            get_alloc(header(block_ptr)) != get_alloc(footer(block_ptr))) 
+        {
+            printf("Heap error at line %d: Block at %p has mismatched header/footer\n", lineno, block_ptr);
+            return false;
+        }
+
+        // Move to the next block in the heap
+        block_ptr = next_block(block_ptr);
 
     }
 
