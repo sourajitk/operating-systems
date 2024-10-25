@@ -18,6 +18,40 @@
  * https://man7.org/linux/man-pages/man3/malloc.3.html
  * Randal E. Bryant and David R. O'Hallaron. 2015. Computer Systems: A Programmer's Perspective (3rd. ed.). Pearson. [Book]
  * 
+ * 
+ * Memory Management Strategy - Segregated Free Lists
+ * The heap is organized into segregated free lists based on block sizes. 
+ * Each block includes a header and footer that record the block's size and allocation status.
+ * 
+ * Memory Allocation - Using free_lists() to manage block allocation
+ * We are useing segregated free lists to manage block allocation efficiently across
+ * varying block sizes. When a malloc request is made, the allocator calculates the required
+ * size and selects the appropriate size class, grouping similar sizes together to minimize
+ * search time. It then searches the list for a suitable free block and, if found, allocates it.
+ * 
+ * Free block management - Usage of coalesce_mem() and then free()
+ * Freed blocks are immediately merged with adjacent free blocks using boundary tags 
+ * to minimize fragmentation. This coalescing process occurs both when a block is freed
+ * and when the heap is extended. These blocks are then marked as free using the free()
+ * function which then allows them to be used in realloc() or new malloc() calls.
+ * 
+ * Memory Reallocation - Usage of realloc()
+ * The realloc function tries to expand the current block in place when
+ * possible. If this is not feasible, it allocates a new block, transfers
+ * the old data, and frees the previous block.
+ * 
+ * Heap error detection = Usage of mm_checkheap()
+ * The heap checker code verifies essential heap properties to ensure integrity and 
+ * correct alignment. It iterates over each block starting from heap_list_ptr and 
+ * performs three main checks:
+ *
+ *  - Alignment Check: Ensures each block's starting address is correctly aligned according
+ *    to the specified alignment requirement. If not, an error message is printed.
+ *  - Size Validation: Verifies that each block's size meets the minimum alignment requirement
+ *    and is a multiple of the alignment value, flagging any invalid sizes.
+ *  - Header/Footer Consistency: Confirms that the header and footer of each block match in size
+ *    and allocation status, detecting any mismatch between the two.
+ * 
  */
 #include <assert.h>
 #include <stdio.h>
@@ -39,7 +73,7 @@
  * the standard C library.
  * 
  */
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 /* When debugging is enabled, the underlying functions get called */
@@ -747,10 +781,6 @@ bool mm_checkheap(int lineno)
             printf("Heap error at line %d: Block at %p has mismatched header/footer\n", lineno, block_ptr);
             return false;
         }
-
-        // Move to the next block in the heap
-        block_ptr = next_block(block_ptr);
-
     }
 
     // Print a message if all checks passed
