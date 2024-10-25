@@ -605,26 +605,12 @@ static void insert_to_tree(void *block_ptr, size_t block_size) {
         header_position++;
     }
 
-    // Get the head of the segregated free list for this size class
-    void *tree_tip = free_list[header_position];
-
-    // If the list is empty, insert block at the head
-    if (tree_tip == NULL) {
-        // Since this is the only block in the list, both pointers are NULL
-        free_list[header_position] = block_ptr;
-        
-        // Set both the previous and next pointers of the block to NULL in one step
-        set_block_pointer(get_previous_pointer(block_ptr), NULL);
-        set_block_pointer(get_next_pointer(block_ptr), NULL);
-        
-        return;  // Exit after insertion
-    }
-
-    // Traverse the list and find the correct position to insert the block
-    void *current_ptr = tree_tip;
+    // Find the position to insert
+    void *current_ptr = free_list[header_position];
     void *prev_ptr = NULL;
 
-    while (current_ptr != NULL && get_size(header(current_ptr)) < get_size(header(block_ptr))) {
+    // Traverse the list to find the appropriate insertion point
+    while (current_ptr != NULL && block_size > get_size(header(current_ptr))) {
         prev_ptr = current_ptr;
         current_ptr = get_previous_block(current_ptr);
     }
