@@ -39,7 +39,7 @@
  * the standard C library.
  * 
  */
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 /* When debugging is enabled, the underlying functions get called */
@@ -713,8 +713,25 @@ bool mm_checkheap(int lineno)
 {
 #ifdef DEBUG
     /* Write code to check heap invariants here */
-    /* IMPLEMENT THIS */
+    // Check alignment of each block
+    void *block_ptr = heap_list_ptr;
 
+    while (get_size(header(block_ptr)) > 0)
+    {
+        // Check if the block is aligned
+        if (!aligned(block_ptr)) 
+        {
+            printf("Heap error at line %d: Block at %p is not aligned\n", lineno, block_ptr);
+            return false;
+        }
+
+        // Check todolist: [Sourajit: add more if you can come up with more]
+        // - Check if the block being used has a valid size
+        // - Check if footer and header in a block matches
+    }
+
+    // Print a message if all checks passed
+    // printf("Heap check at line %d: All checks passed\n", lineno);
 #endif /* DEBUG */
     return true;
 }
