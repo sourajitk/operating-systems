@@ -759,10 +759,6 @@ bool mm_checkheap(int lineno)
             return false;
         }
 
-        // Check todolist: [Sourajit: add more if you can come up with more]
-        // - Check if the block being used has a valid size {DONE}
-        // - Check if footer and header in a block matches
-
         // Check if each block has a valid size
         size_t block_size = get_size(header(block_ptr));
         // This part of the condition ensures that the size of each block is at least ALIGNMENT bytes.
