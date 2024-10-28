@@ -114,7 +114,7 @@
 static char *heap_list_ptr;                                      // The first pointer to the heap block
 static void remove_from_tree(void *block_ptr);                   // Removes a given pointer from the tree we are building
 static void insert_to_tree(void *block_ptr, size_t block_size);  // Adds a given pointer to the tree we are building
-void *free_list[ALIGNMENT];
+static void *free_list[ALIGNMENT];                               // Define the free_list array of size (ALIGNMENT --> 16) 
 
 // Use static inline functions instead of using macros. [TODO]
 // Pack size and allocation bit into a single word to store in the header/footer
