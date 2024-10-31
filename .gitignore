@@ -1,0 +1,8 @@
+*.o
+*.d
+.vscode/
+mdriver
+linked_list_test
+sandbox/
+simulator
+Makefile
