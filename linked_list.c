@@ -8,6 +8,10 @@ list_t* list_create(compare_fn compare)
     /* IMPLEMENT THIS */
     // Allocate memory for the new list
     list_t* linked_list = (list_t*)malloc(sizeof(list_t));
+    if (!linked_list) {
+        // Handle memory allocation failure
+        return NULL;
+    }
     return NULL;
 }
 
