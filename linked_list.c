@@ -1,6 +1,23 @@
 #include <stdlib.h>
 #include "linked_list.h"
 
+/*
+ * Create a helper function that helps initialize the linked list
+ * This basically sets some of the linked_list values to their
+ * initial values. This can be used anywhere we want
+ * 
+ * count: Will keep track of the number of nodes in the list.
+ * head: Points to the first node in the list.
+ * tail: Points to the last node in the list.
+ * 
+ */
+static void list_initialize(list_t* list, compare_fn compare) {
+    list->compare = compare; // Assign compare function (can be NULL)
+    list->count = 0;         // Initialize count to 0
+    list->head = NULL;       // Initialize head to NULL
+    list->tail = NULL;       // Initialize tail to NULL
+}
+
 // Creates and returns a new list
 // If compare is NULL, list_insert just inserts at the head
 list_t* list_create(compare_fn compare)
@@ -12,6 +29,9 @@ list_t* list_create(compare_fn compare)
         // Handle memory allocation failure
         return NULL;
     }
+
+    // Initialize the allocated list
+    list_initialize(linked_list, compare);
     return NULL;
 }
 
