@@ -32,7 +32,7 @@ list_t* list_create(compare_fn compare)
 
     // Initialize the allocated list
     list_initialize(linked_list, compare);
-    return NULL;
+    return linked_list;
 }
 
 // Destroys a list
