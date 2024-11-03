@@ -39,6 +39,10 @@ list_t* list_create(compare_fn compare)
 void list_destroy(list_t* list)
 {
     /* IMPLEMENT THIS */
+    if (!list) {
+        // Handle case where list is already NULL
+        return;
+    }
     // Free each node in the list
     list_node_t* current = list->head;
     // Free each node in the list using a for loop
