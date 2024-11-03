@@ -39,6 +39,21 @@ list_t* list_create(compare_fn compare)
 void list_destroy(list_t* list)
 {
     /* IMPLEMENT THIS */
+    // Free each node in the list
+    list_node_t* current = list->head;
+    // Free each node in the list using a for loop
+    for (list_node_t* current = list->head; current != NULL;) {
+        // Set the current entity to be the next one
+        list_node_t* next = current->next;
+        free(current);
+        current = next;
+    }
+
+    // Reset list properties to safe values
+    list_initialize(list, NULL); // Reset the list fields to initial state
+    
+    // Free the list structure itself
+    free(list);
 }
 
 
