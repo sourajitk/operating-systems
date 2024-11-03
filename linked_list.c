@@ -41,54 +41,61 @@ void list_destroy(list_t* list)
     /* IMPLEMENT THIS */
 }
 
+
+/*
+ * So basically, these just access different parts of the linked_list
+ * structs present in linked_list.h. Hence, we can just return these
+ * from the struct directly.
+ */ 
 // Returns head of the list
 list_node_t* list_head(list_t* list)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    return list->head;
 }
 
 // Returns tail of the list
 list_node_t* list_tail(list_t* list)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    return list->tail;
 }
 
 // Returns next element in the list
 list_node_t* list_next(list_node_t* node)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    return node->next;
 }
 
 // Returns prev element in the list
 list_node_t* list_prev(list_node_t* node)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    return node->prev;
 }
 
 // Returns end of the list marker
 list_node_t* list_end(list_t* list)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    return list->tail;
 }
 
 // Returns data in the given list node
 void* list_data(list_node_t* node)
 {
     /* IMPLEMENT THIS */
-    return NULL;
+    return node->data;
 }
 
 // Returns the number of elements in the list
 size_t list_count(list_t* list)
 {
     /* IMPLEMENT THIS */
-    return 0;
+    return list->count;
 }
+
 
 // Finds the first node in the list with the given data
 // Returns NULL if data could not be found
