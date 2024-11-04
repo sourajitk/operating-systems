@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "scheduler.h"
 #include "job.h"
 #include "linked_list.h"
@@ -7,6 +8,8 @@
 // FCFS scheduler info
 typedef struct {
     /* IMPLEMENT THIS */
+    list_t* current_queue;    // Current current_queue to hold jobs in FCFS order
+    job_t* job;               // Pointer to the current job being scheduled
 } scheduler_FCFS_t;
 
 // Creates and returns scheduler specific info
@@ -17,6 +20,19 @@ void* schedulerFCFSCreate()
         return NULL;
     }
     /* IMPLEMENT THIS */
+    // Initialize all fields to 0/NULL
+    memset(info, 0, sizeof(scheduler_FCFS_t));
+
+    // Set up the job queue
+    info->current_queue = list_create(NULL);
+
+    // If queue creation failed, free info and return NULL
+    if (!info->current_queue) {
+        free(info);
+        return NULL;
+    }
+
+    // Return the fully initialized structure
     return info;
 }
 
@@ -25,6 +41,14 @@ void schedulerFCFSDestroy(void* schedulerInfo)
 {
     scheduler_FCFS_t* info = (scheduler_FCFS_t*)schedulerInfo;
     /* IMPLEMENT THIS */
+    // Destroy the job queue if it exists
+    if (info->current_queue) {
+        list_destroy(info->current_queue);
+        // Set to NULL after destroying
+        info->current_queue = NULL;
+    }
+
+    // Free the scheduler info struct itself
     free(info);
 }
 
