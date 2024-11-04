@@ -241,4 +241,28 @@ list_node_t* list_insert(list_t* list, void* data)
 void list_remove(list_t* list, list_node_t* node)
 {
     /* IMPLEMENT THIS */
+    if (!list || !node) {
+        return; // Handle NULL inputs
+    }
+
+    // Update previous and next pointers as needed
+    if (node->prev) {
+        // Link previous node to next
+        node->prev->next = node->next;
+    } else {
+        // Node is the head
+        list->head = node->next;
+    }
+
+    if (node->next) {
+        // Link next node to previous
+        node->next->prev = node->prev;
+    } else {
+        // Node is the tail
+        list->tail = node->prev;
+    }
+
+    // Decrement count and free the node
+    list->count--;
+    free(node);
 }
