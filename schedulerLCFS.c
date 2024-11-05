@@ -61,6 +61,17 @@ void schedulerLCFSScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t
 {
     scheduler_LCFS_t* info = (scheduler_LCFS_t*)schedulerInfo;
     /* IMPLEMENT THIS */
+    // Check if there is an active job being processed
+    if (info->job) {
+        // If an active job exists, enqueue the new job for processing
+        list_insert(info->current_queue, job);
+    } else {
+        // No job is currently being processed, so set the new job as the active job
+        info->job = job;
+
+        // Add the new active job to the processing queue
+        list_insert(info->current_queue, info->job);
+    }
 }
 
 // Called to complete a job in response to an earlier call to schedulerScheduleNextCompletion
