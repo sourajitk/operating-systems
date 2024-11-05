@@ -71,6 +71,12 @@ void schedulerLCFSScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t
 
         // Add the new active job to the processing queue
         list_insert(info->current_queue, info->job);
+
+        // Calculate the job's completion time
+        uint64_t jobCompletionTime = currentTime + jobGetJobTime(info->job);
+
+        // Schedule the completion of the active job
+        schedulerScheduleNextCompletion(scheduler, jobCompletionTime);
     }
 }
 
