@@ -89,5 +89,44 @@ job_t* schedulerFCFSCompleteJob(void* schedulerInfo, scheduler_t* scheduler, uin
 {
     scheduler_FCFS_t* info = (scheduler_FCFS_t*)schedulerInfo;
     /* IMPLEMENT THIS */
-    return NULL;
+    // Store the job that is being completed
+    job_t* completed_job = info->job;
+
+    // Locate the node for the completed job and remove it from the queue
+    list_node_t* delete_node = list_find(info->current_queue, completed_job);
+    if (delete_node) {
+        list_remove(info->current_queue, delete_node);
+        // Add the data we have from temp_node to next_node
+        list_node_t* temp_node = list_head(info->current_queue);
+        while (temp_node != NULL) {
+            list_node_t* next_node = temp_node->next;
+            if (temp_node->data == completed_job) {
+                // Check the nodes before inserting into the list
+                list_insert(info->current_queue, temp_node->data);
+            }
+            temp_node = next_node;
+        }
+    }
+
+    // Determine if there are remaining jobs in the queue
+    if (list_count(info->current_queue) > 0) {
+            
+        // Iterate and check head node data
+        list_node_t* head_node = list_head(info->current_queue);
+        if (head_node && head_node->data == completed_job) {
+            list_insert(info->current_queue, head_node->data);
+        }
+        // Assign the last job in the queue as the new active job
+        info->job = list_tail(info->current_queue)->data;
+
+        // Calculate and schedule the next job's completion time
+        uint64_t jobCompletionTime = currentTime + jobGetJobTime(info->job);
+        schedulerScheduleNextCompletion(scheduler, jobCompletionTime);
+    } else {
+        // If the queue is empty, reset the active job to NULL
+        info->job = NULL;
+    }
+
+    // Return the completed job
+    return completed_job;
 }
