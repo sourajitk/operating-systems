@@ -11,6 +11,45 @@ typedef struct {
     job_t* job;               // Pointer to the current job being scheduled
 } scheduler_SJF_t;
 
+/*
+ * We basically use this funciton to make sure that when
+ * we create our list using schedulerSJFCreate(), we are
+ * making sure that we are choosing the right job, making
+ * it easier to maintain or modify the comparison rules 
+ * without changing the list implementation.
+ */ 
+int job_priority(void* job_a, void* job_b) {
+    // Cast the first job data to a job_t structure
+    job_t* task_a = (job_t*)job_a;
+
+    // Cast the second job data to a job_t structure
+    job_t* task_b = (job_t*)job_b;
+
+    // Retrieve the execution time of the first and second job
+    uint64_t task_time_a = jobGetJobTime(task_a);
+    uint64_t task_time_b = jobGetJobTime(task_b);
+
+    // Compare the execution times of the two jobs
+    // If the first job's time is greater, it has lower priority
+    if (task_time_a > task_time_b) {
+        return 1;
+    }
+    // If the first job's time is less, it has higher priority
+    else if (task_time_a < task_time_b) {
+        return -1;
+    }
+
+    // If execution times are equal, compare the job IDs as a tiebreaker
+    // If the first job's ID is greater, it has lower priority
+    if (jobGetId(task_a) > jobGetId(task_b)) {
+        return 1;
+    }
+    // Otherwise, the second job has lower priority or they are equivalent
+    else {
+        return -1;
+    }
+}
+
 // Creates and returns scheduler specific info
 void* schedulerSJFCreate()
 {
@@ -20,7 +59,7 @@ void* schedulerSJFCreate()
     }
     /* IMPLEMENT THIS */
     // Initialize the job current_queue with a priority comparison function
-    info->current_queue = list_create(NULL);
+    info->current_queue = list_create(job_priority);
     if (info->current_queue == NULL) {
         free(info); // Clean up if current_queue creation fails
         return NULL; // Return NULL to indicate failure
