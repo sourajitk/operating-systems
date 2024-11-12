@@ -7,6 +7,8 @@
 // SJF scheduler info
 typedef struct {
     /* IMPLEMENT THIS */
+    list_t* current_queue;    // Current current_queue to hold jobs in SJF order
+    job_t* job;               // Pointer to the current job being scheduled
 } scheduler_SJF_t;
 
 // Creates and returns scheduler specific info
@@ -17,6 +19,14 @@ void* schedulerSJFCreate()
         return NULL;
     }
     /* IMPLEMENT THIS */
+    // Initialize the job current_queue with a priority comparison function
+    info->current_queue = list_create(NULL);
+    if (info->current_queue == NULL) {
+        free(info); // Clean up if current_queue creation fails
+        return NULL; // Return NULL to indicate failure
+    }
+    // Set the current job pointer to NULL to mark no active job initially
+    info->job = NULL;
     return info;
 }
 
@@ -25,6 +35,13 @@ void schedulerSJFDestroy(void* schedulerInfo)
 {
     scheduler_SJF_t* info = (scheduler_SJF_t*)schedulerInfo;
     /* IMPLEMENT THIS */
+    // Destroy the job queue if it exists
+    if (info->current_queue) {
+        list_destroy(info->current_queue);
+        // Set to NULL after destroying
+        info->current_queue = NULL;
+    }
+    // Free the scheduler info struct itself
     free(info);
 }
 
