@@ -93,6 +93,17 @@ void schedulerSJFScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t*
 {
     scheduler_SJF_t* info = (scheduler_SJF_t*)schedulerInfo;
     /* IMPLEMENT THIS */
+    if (info->job == NULL) {
+        // If no current job, assign the new job and schedule its completion
+        info->job = job;
+
+        // Calculate completion time for the job and schedule it
+        uint64_t job_completion_time = jobGetJobTime(job) + currentTime;
+        schedulerScheduleNextCompletion(scheduler, job_completion_time);
+    } else {
+        // Insert the job into the current_queue if a job is already in progress
+        list_insert(info->current_queue, job);
+    }
 }
 
 // Called to complete a job in response to an earlier call to schedulerScheduleNextCompletion
