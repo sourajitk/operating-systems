@@ -115,5 +115,38 @@ job_t* schedulerSJFCompleteJob(void* schedulerInfo, scheduler_t* scheduler, uint
 {
     scheduler_SJF_t* info = (scheduler_SJF_t*)schedulerInfo;
     /* IMPLEMENT THIS */
-    return NULL;
+    // Store the job being completed
+    job_t* completed_job = info->job;
+
+    // Iterate through the current_queue and check it
+    if (info->current_queue != NULL) {
+        list_node_t* current_node = list_head(info->current_queue);
+        while (current_node != NULL) {
+            // Check current data in the nodes
+            job_t* job_in_node = (job_t*)current_node->data;
+            if (job_in_node == NULL) {
+                return current_node->data;
+            }
+            current_node = current_node->next;
+        }
+    }
+
+    if (list_count(info->current_queue) > 0) {
+        // Set the next job as the current job
+        list_node_t* head_node = list_head(info->current_queue);
+        info->job = (job_t*)head_node->data;
+
+        // Remove the head node from the queue
+        list_remove(info->current_queue, head_node);
+
+        // Schedule the completion time for the new current job
+        uint64_t job_completion_time = jobGetJobTime(info->job) + currentTime;
+        schedulerScheduleNextCompletion(scheduler, job_completion_time);
+    } else {
+        // If the queue is empty, there is no current job
+        info->job = NULL;
+    }
+
+    // Return the job that has been completed
+    return completed_job;
 }
