@@ -6,7 +6,8 @@
 
 // MLFQ scheduler info
 typedef struct {
-    /* IMPLEMENT THIS */
+    list_t* current_queue;  // Single queue for job management
+    job_t* job;             // Tracks the last update time
 } scheduler_MLFQ_t;
 
 // Creates and returns scheduler specific info
@@ -16,7 +17,16 @@ void* schedulerMLFQCreate()
     if (info == NULL) {
         return NULL;
     }
-    /* IMPLEMENT THIS */
+
+    // Initialize the job queue
+    info->current_queue = list_create(NULL);
+    if (info->current_queue == NULL) {
+        free(info); // Clean up if queue creation fails
+        return NULL; // Return NULL to indicate failure
+    }
+
+    // Set the current job pointer to NULL to mark no active job initially
+    info->job = NULL;
     return info;
 }
 
@@ -24,7 +34,13 @@ void* schedulerMLFQCreate()
 void schedulerMLFQDestroy(void* schedulerInfo)
 {
     scheduler_MLFQ_t* info = (scheduler_MLFQ_t*)schedulerInfo;
-    /* IMPLEMENT THIS */
+    // Destroy the job queue if it exists
+    if (info->current_queue) {
+        list_destroy(info->current_queue);
+        // Set to NULL after destroying
+        info->current_queue = NULL;
+    }
+    // Free the scheduler info struct itself
     free(info);
 }
 
