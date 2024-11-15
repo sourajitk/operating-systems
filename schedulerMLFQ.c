@@ -52,8 +52,20 @@ void schedulerMLFQDestroy(void* schedulerInfo)
 void schedulerMLFQScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t* job, uint64_t currentTime)
 {
     scheduler_MLFQ_t* info = (scheduler_MLFQ_t*)schedulerInfo;
-    /* IMPLEMENT THIS */
+
+    // Add new jobs to the queue
+    list_insert(info->current_queue, job);
+
+    // Cancel any existing completion if necessary and reschedule
+    schedulerCancelNextCompletion(scheduler);
+
+    // Determine the next job to complete
+    if (list_count(info->current_queue) > 0) {
+        job_t* nextJob = list_data(list_head(info->current_queue));
+        schedulerScheduleNextCompletion(scheduler, currentTime + jobGetRemainingTime(nextJob));
+    }
 }
+
 
 // Called to complete a job in response to an earlier call to schedulerScheduleNextCompletion
 // schedulerInfo - scheduler specific info from create function
