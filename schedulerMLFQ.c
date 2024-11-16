@@ -6,8 +6,10 @@
 
 // MLFQ scheduler info
 typedef struct {
-    list_t* current_queue;  // Single queue for job management
-    job_t* job;             // Tracks the last update time
+    /* IMPLEMENT THIS */
+    uint64_t last_update_timestamp;   // Last time since the job was updated
+    uint64_t mlfq_priority_level;     // MLFQ Priority level of the current job 
+    list_t* current_queue;            // Current current_queue to hold jobs in MLFQ order
 } scheduler_MLFQ_t;
 
 // Helper function to compare two integers and store the result
@@ -66,6 +68,14 @@ int task_completion_queue(void* job_a, void* job_b)
     return 0;
 }
 
+// Create a helper function to 0-out the scheduler info fields when needed
+// [TODO check where else we might need to use it]
+void initializeSchedulerInfoFields(scheduler_MLFQ_t* info) 
+{
+    info->last_update_timestamp = 0;
+    info->mlfq_priority_level = 0;
+}
+
 // Creates and returns scheduler specific info
 void* schedulerMLFQCreate()
 {
@@ -80,9 +90,9 @@ void* schedulerMLFQCreate()
         free(info); // Clean up if queue creation fails
         return NULL; // Return NULL to indicate failure
     }
-
-    // Set the current job pointer to NULL to mark no active job initially
-    info->job = NULL;
+    
+    // Initialize list fields by zeroing them out
+    initializeSchedulerInfoFields(info);
     return info;
 }
 
