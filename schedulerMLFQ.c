@@ -10,6 +10,20 @@ typedef struct {
     job_t* job;             // Tracks the last update time
 } scheduler_MLFQ_t;
 
+// Helper function to compare two integers and store the result
+int comparison_result(uint64_t value_1, uint64_t value_2)
+{
+    if (value_1 < value_2) {
+        return -1;
+    } else if (value_1 > value_2) {
+        return 1;
+    } else {
+        return 0;
+    }
+    // Use the helper function to store and return the comparison result
+    return comparison_result(value_1, value_2);
+}
+
 // Creates and returns scheduler specific info
 void* schedulerMLFQCreate()
 {
