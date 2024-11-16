@@ -110,6 +110,45 @@ void schedulerMLFQDestroy(void* schedulerInfo)
     free(info);
 }
 
+/*
+ * So basically, we are trying to process a single unit of work for
+ * the next job in the queue. This function handles the execution of
+ * one time unit for the job at the head of the queue. If the job is
+ * completed after processing, it is removed and returned. Otherwise,
+ * the job is updated and reinserted into the queue for further processing.
+ */
+job_t* process_next_job(list_t* queue, scheduler_t* scheduler, uint64_t current_time)
+{
+    // Check if the queue is empty; if no jobs are available, return NULL.
+    if (list_count(queue) == 0) {
+        return NULL;
+    }
+
+    // Retrieve the first job (head of the queue) for processing.
+    list_node_t* node = list_head(queue);
+    job_t* job = list_data(node);
+    uint64_t remaining_time = jobGetRemainingTime(job);
+
+    // Check if the job can be completed with one unit of work.
+    if (remaining_time <= 1) {
+        // Job is complete
+        list_remove(queue, node);
+        return job;
+    } else {
+        // Process one unit of work
+        jobSetRemainingTime(job, remaining_time - 1);
+        list_remove(queue, node);
+        list_insert(queue, job);
+    }
+
+    // Reschedule the next completion
+    if (list_count(queue) > 0) {
+        schedulerScheduleNextCompletion(scheduler, current_time + 1);
+    }
+
+    return NULL;
+}
+
 // Called to schedule a new job in the queue
 // schedulerInfo - scheduler specific info from create function
 // scheduler - used to call schedulerScheduleNextCompletion and schedulerCancelNextCompletion
