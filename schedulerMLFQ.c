@@ -75,6 +75,23 @@ void schedulerMLFQScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t
 job_t* schedulerMLFQCompleteJob(void* schedulerInfo, scheduler_t* scheduler, uint64_t currentTime)
 {
     scheduler_MLFQ_t* info = (scheduler_MLFQ_t*)schedulerInfo;
-    /* IMPLEMENT THIS */
-    return NULL;
+
+    if (list_count(info->current_queue) > 0) {
+        // Dequeue the next job from the queue
+        list_node_t* node = list_tail(info->current_queue);
+        job_t* completedJob = list_data(node);
+        list_remove(info->current_queue, node);
+
+        // Check if there are jobs remaining to reschedule
+        schedulerCancelNextCompletion(scheduler);
+
+        if (list_count(info->current_queue) > 0) {
+            job_t* nextJob = list_data(list_head(info->current_queue));
+            schedulerScheduleNextCompletion(scheduler, currentTime + jobGetRemainingTime(nextJob));
+        }
+
+        return completedJob;
+    }
+
+    return NULL; // No jobs to complete
 }
