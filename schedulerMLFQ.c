@@ -75,7 +75,7 @@ void* schedulerMLFQCreate()
     }
 
     // Initialize the job queue
-    info->current_queue = list_create(NULL);
+    info->current_queue = list_create(task_completion_queue);
     if (info->current_queue == NULL) {
         free(info); // Clean up if queue creation fails
         return NULL; // Return NULL to indicate failure
