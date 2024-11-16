@@ -24,6 +24,48 @@ int comparison_result(uint64_t value_1, uint64_t value_2)
     return comparison_result(value_1, value_2);
 }
 
+// Helper function to calculate completed work for a job
+uint64_t calculate_completed_work(job_t* task) {
+    return jobGetJobTime(task) - jobGetRemainingTime(task);
+}
+
+/*
+ * Compare two jobs based on the amount of work completed and, 
+ * if needed, their job IDs. This determines the priority of
+ * jobs within the MLFQ queue. The comparison ensures that jobs
+ * with less completed work are prioritized using round-robin logic
+ * as a secondary check for fairness.
+ */
+
+int task_completion_queue(void* job_a, void* job_b)
+{
+    // Create pointers for job-specific fields and functions for comparison.
+    job_t* task_1 = (job_t*)job_a;
+    job_t* task_2 = (job_t*)job_b;
+
+    // Ensure tasks are not null (already assumed in the main logic)
+    if (task_1 == NULL || task_2 == NULL) {
+        // Should never happen
+        return 0;
+    }
+
+    // Compare the amount of completed work for two tasks
+    if (calculate_completed_work(task_1) < calculate_completed_work(task_2)) {
+        return -1;
+    } else if (calculate_completed_work(task_1) > calculate_completed_work(task_2)) {
+        return 1;
+    }
+
+    // Compare the IDs of the two tasks to determine their order
+    if (jobGetId(task_1) < jobGetId(task_2)) {
+        return -1;
+    } else if (jobGetId(task_1) > jobGetId(task_2)) {
+        return 1;
+    }
+
+    return 0;
+}
+
 // Creates and returns scheduler specific info
 void* schedulerMLFQCreate()
 {
