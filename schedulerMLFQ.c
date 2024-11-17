@@ -262,23 +262,46 @@ void schedulerMLFQScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t
 job_t* schedulerMLFQCompleteJob(void* schedulerInfo, scheduler_t* scheduler, uint64_t currentTime)
 {
     scheduler_MLFQ_t* info = (scheduler_MLFQ_t*)schedulerInfo;
+    /* IMPLEMENT THIS */
+    job_t* completed_job = NULL;
 
-    if (list_count(info->current_queue) > 0) {
-        // Dequeue the next job from the queue
-        list_node_t* node = list_tail(info->current_queue);
-        job_t* completedJob = list_data(node);
-        list_remove(info->current_queue, node);
-
-        // Check if there are jobs remaining to reschedule
-        schedulerCancelNextCompletion(scheduler);
-
-        if (list_count(info->current_queue) > 0) {
-            job_t* nextJob = list_data(list_head(info->current_queue));
-            schedulerScheduleNextCompletion(scheduler, currentTime + jobGetRemainingTime(nextJob));
-        }
-
-        return completedJob;
+    // Check if the scheduler info and current queue are valid
+    if (info == NULL || info->current_queue == NULL) {
+        // Exit early if the scheduler info or queue is invalid
+        return NULL;
     }
 
-    return NULL; // No jobs to complete
+    // Retrieve the job at the head of the queue if the queue is not empty
+    list_node_t* node = list_head(info->current_queue);
+    if (node != NULL) {
+        job_t* current_job = list_data(node);
+
+        // Ensure the current job is valid before proceeding
+        if (current_job != NULL) {
+            uint64_t remaining_time = jobGetRemainingTime(current_job);
+
+            // Check if the job can be completed
+            if (remaining_time <= 1) {
+                // Remove the job from the queue as it's completed
+                list_remove(info->current_queue, node);
+                completed_job = current_job;
+            } else {
+                // Process one unit of work
+                jobSetRemainingTime(current_job, remaining_time - 1);
+
+                // Remove and reinsert the job to maintain queue order
+                list_remove(info->current_queue, node);
+                list_insert(info->current_queue, current_job);
+            }
+
+            // Schedule the next completion event only if jobs remain
+            if (list_head(info->current_queue) != NULL) {
+                schedulerScheduleNextCompletion(scheduler, currentTime + 1);
+            }
+        }
+    }
+
+    // Update the timestamp for the last event
+    info->last_update_timestamp = currentTime;
+    return completed_job;
 }
