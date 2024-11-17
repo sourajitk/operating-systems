@@ -149,6 +149,33 @@ job_t* process_next_job(list_t* queue, scheduler_t* scheduler, uint64_t current_
     return NULL;
 }
 
+// Helper function to determine the minimum completion level and count jobs at that level
+uint64_t get_jobs_at_min_level(list_t* queue, uint64_t* out_min_completion_level) {
+    // Check if the queue is empty
+    if (list_head(queue) == NULL) {
+        *out_min_completion_level = 0;
+        return 0;
+    }
+
+    // Identify the minimum completion level of jobs in the queue
+    list_node_t* node = list_head(queue);
+    uint64_t min_completion_level = jobGetJobTime(list_data(node)) - jobGetRemainingTime(list_data(node));
+
+    // Count the number of jobs at the minimum completion level
+    uint64_t jobs_at_min_level = 0;
+    for (list_node_t* node = list_head(queue); node != NULL; node = list_next(node)) {
+        job_t* current_job = list_data(node);
+        uint64_t job_completion_level = jobGetJobTime(current_job) - jobGetRemainingTime(current_job);
+        if (job_completion_level > min_completion_level) {
+            break;
+        }
+        jobs_at_min_level = jobs_at_min_level + 1;
+    }
+
+    *out_min_completion_level = min_completion_level;
+    return jobs_at_min_level;
+}
+
 // Called to schedule a new job in the queue
 // schedulerInfo - scheduler specific info from create function
 // scheduler - used to call schedulerScheduleNextCompletion and schedulerCancelNextCompletion
@@ -157,20 +184,58 @@ job_t* process_next_job(list_t* queue, scheduler_t* scheduler, uint64_t current_
 void schedulerMLFQScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t* job, uint64_t currentTime)
 {
     scheduler_MLFQ_t* info = (scheduler_MLFQ_t*)schedulerInfo;
+    /* IMPLEMENT THIS */
+    // Calculate the elapsed time since the last scheduling event
+    uint64_t time_used = currentTime - info->last_update_timestamp;
 
-    // Add new jobs to the queue
-    list_insert(info->current_queue, job);
+    // Exit early if no elapsed time or the queue is empty
+    if (time_used <= 0 || list_count(info->current_queue) == 0) {
+        // Add the new job to the queue and schedule the next completion
+        if (info->current_queue != NULL && scheduler != NULL) {
+            list_insert(info->current_queue, job);
+            schedulerScheduleNextCompletion(scheduler, currentTime + 1);
+            info->last_update_timestamp = currentTime;
+        }
+        return;
+    }
 
-    // Cancel any existing completion if necessary and reschedule
-    schedulerCancelNextCompletion(scheduler);
+    // Determine the minimum completion level and the number of jobs at that level
+    uint64_t min_completion_level = 0;
+    uint64_t jobs_at_min_level = get_jobs_at_min_level(info->current_queue, &min_completion_level);
 
-    // Determine the next job to complete
-    if (list_count(info->current_queue) > 0) {
-        job_t* nextJob = list_data(list_head(info->current_queue));
-        schedulerScheduleNextCompletion(scheduler, currentTime + jobGetRemainingTime(nextJob));
+    // Initialize the remaining time for processing
+    uint64_t remaining_time = time_used;
+
+    // Distribute the elapsed time across jobs at the minimum completion level
+    for (list_node_t* node = list_head(info->current_queue); remaining_time > 0;) {
+        if (node == NULL) {
+            // Exit if no more jobs in the queue
+            break;
+        }
+
+        job_t* current_job = list_data(node);
+        uint64_t remaining_job_time = jobGetRemainingTime(current_job);
+
+        // Allocate one unit of work or less if the job requires less time
+        uint64_t allocated_work;
+        if (remaining_job_time < 1) {
+            allocated_work = remaining_job_time;
+        }
+
+        // Update the job's remaining time
+        jobSetRemainingTime(current_job, remaining_job_time - allocated_work);
+
+        // Remove the job from the queue and reinsert it if not yet complete
+        list_remove(info->current_queue, node);
+        if (remaining_job_time > allocated_work) {
+            list_insert(info->current_queue, current_job);
+        }
+
+        // Update remaining time and move to the next node
+        remaining_time -= allocated_work;
+        node = list_head(info->current_queue);
     }
 }
-
 
 // Called to complete a job in response to an earlier call to schedulerScheduleNextCompletion
 // schedulerInfo - scheduler specific info from create function
