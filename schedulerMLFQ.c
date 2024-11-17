@@ -235,6 +235,23 @@ void schedulerMLFQScheduleJob(void* schedulerInfo, scheduler_t* scheduler, job_t
         remaining_time -= allocated_work;
         node = list_head(info->current_queue);
     }
+
+    // Cancel any previously scheduled completion event
+    if (scheduler != NULL) {
+        schedulerCancelNextCompletion(scheduler);
+        // Check if the job queue is valid
+        if (info->current_queue != NULL) {
+            // Add the new job to the queue
+            list_insert(info->current_queue, job);
+
+            // Schedule the next completion event
+            schedulerScheduleNextCompletion(scheduler, currentTime + 1);
+
+            // Update the timestamp for the last scheduling event
+            info->last_update_timestamp = currentTime;
+        }
+    }
+
 }
 
 // Called to complete a job in response to an earlier call to schedulerScheduleNextCompletion
