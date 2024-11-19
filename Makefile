@@ -37,7 +37,7 @@ debug: clean $(TARGET) $(TARGET_SANITIZE)
 
 SANITIZE_OBJS = $(OBJS:%.o=%_sanitize.o)
 $(TARGET_SANITIZE): $(SANITIZE_OBJS)
-	$(CC) $(CFLAGS) -fsanitize=thread -o $@ $^ $(LDFLAGS) -static-libtsan
+	$(CC) $(CFLAGS) -fsanitize=thread -o $@ $^ $(LDFLAGS)
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
