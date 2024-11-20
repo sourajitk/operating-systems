@@ -18,8 +18,10 @@ static void list_initialize(list_t* list) {
 }
 
 // Creates and returns a new list
+// If compare is NULL, list_insert just inserts at the head
 list_t* list_create()
 {
+    /* IMPLEMENT THIS */
     // Allocate memory for the new list
     list_t* linked_list = (list_t*)malloc(sizeof(list_t));
     if (!linked_list) {
@@ -31,7 +33,6 @@ list_t* list_create()
     list_initialize(linked_list);
     return linked_list;
 }
-
 
 // Destroys a list
 void list_destroy(list_t* list)
@@ -54,47 +55,60 @@ void list_destroy(list_t* list)
     free(list);
 }
 
+/*
+ * So basically, these just access different parts of the linked_list
+ * structs present in linked_list.h. Hence, we can just return these
+ * from the struct directly.
+ */ 
 // Returns head of the list
 list_node_t* list_head(list_t* list)
 {
-    /* IMPLEMENT THIS IF YOU WANT TO USE LINKED LISTS */
+    /* IMPLEMENT THIS */
     return list->head;
 }
 
 // Returns tail of the list
 list_node_t* list_tail(list_t* list)
 {
-    /* IMPLEMENT THIS IF YOU WANT TO USE LINKED LISTS */
+    /* IMPLEMENT THIS */
     return list->tail;
 }
 
 // Returns next element in the list
 list_node_t* list_next(list_node_t* node)
 {
-    /* IMPLEMENT THIS IF YOU WANT TO USE LINKED LISTS */
+    /* IMPLEMENT THIS */
     return node->next;
 }
 
 // Returns prev element in the list
 list_node_t* list_prev(list_node_t* node)
 {
-    /* IMPLEMENT THIS IF YOU WANT TO USE LINKED LISTS */
+    /* IMPLEMENT THIS */
     return node->prev;
 }
 
 // Returns end of the list marker
 list_node_t* list_end(list_t* list)
 {
-    /* IMPLEMENT THIS IF YOU WANT TO USE LINKED LISTS */
+    /* IMPLEMENT THIS */
     return list->tail;
 }
 
 // Returns data in the given list node
 void* list_data(list_node_t* node)
 {
-    /* IMPLEMENT THIS IF YOU WANT TO USE LINKED LISTS */
+    /* IMPLEMENT THIS */
     return node->data;
 }
+
+// Returns the number of elements in the list
+size_t list_count(list_t* list)
+{
+    /* IMPLEMENT THIS */
+    return list->count;
+}
+
 
 // Helper function to find the node with the given data
 list_node_t* list_hit_validation(list_node_t* node, void* data) {
@@ -166,57 +180,54 @@ void insert_at_tail(list_t* list, list_node_t* new_entry) {
 
 
 // Inserts a new node in the list with the given data
-// Returns the new node inserted
+// Returns new node inserted
 list_node_t* list_insert(list_t* list, void* data)
 {
-    // Allocate memory for the new node
+    /* IMPLEMENT THIS */
     list_node_t* new_entry = (list_node_t*)malloc(sizeof(list_node_t));
+    // Handle memory allocation failure
     if (!new_entry) {
-        // Handle memory allocation failure
         return NULL;
     }
     new_entry->data = data;
-    new_entry->next = NULL;
-    new_entry->prev = NULL;
 
     // Handle empty list
     if (list->count == 0) {
         // Ensure list fields are initialized
-        list_initialize(list);
-        list->head = new_entry;
-        list->tail = new_entry;
-        list->count++;
+        list_initialize(list, list->compare);
+        insert_at_head(list, new_entry);
         return new_entry;
     }
 
-    // Traverse the list to find the correct insertion point
-    // Replace this placeholder logic with your own condition if needed
+    // If no compare function, insert at the head
+    if (!list->compare) {
+        insert_at_head(list, new_entry);
+        return new_entry;
+    }
+
+    // Use the compare function to find the insertion point
     list_node_t* temp = list->head;
     while (temp) {
-        if (!list->tail) {
-            // Insert before the current node
-            new_entry->next = temp;
-            new_entry->prev = temp->prev;
-
-            if (temp->prev) {
-                temp->prev->next = new_entry;
+        int result = list->compare(temp->data, data);
+        if (result > 0 || result == 0) {
+            // Found correct spot for insertion
+            if (temp == list->head) {
+                insert_at_head(list, new_entry);
             } else {
-                // Insert at the head
-                list->head = new_entry;
+                // Insert in the middle of the list
+                new_entry->next = temp;
+                new_entry->prev = temp->prev;
+                temp->prev->next = new_entry;
+                temp->prev = new_entry;
+                list->count++;
             }
-
-            temp->prev = new_entry;
-            list->count++;
             return new_entry;
         }
         temp = temp->next;
     }
 
-    // If no insertion point found, insert at the tail
-    new_entry->prev = list->tail;
-    list->tail->next = new_entry;
-    list->tail = new_entry;
-    list->count++;
+    // If we reach here, insert at the end
+    insert_at_tail(list, new_entry);
     return new_entry;
 }
 
