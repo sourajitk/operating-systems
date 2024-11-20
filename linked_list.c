@@ -11,8 +11,7 @@
  * tail: Points to the last node in the list.
  * 
  */
-static void list_initialize(list_t* list, compare_fn compare) {
-    list->compare = compare; // Assign compare function (can be NULL)
+static void list_initialize(list_t* list) {
     list->count = 0;         // Initialize count to 0
     list->head = NULL;       // Initialize head to NULL
     list->tail = NULL;       // Initialize tail to NULL
@@ -20,7 +19,7 @@ static void list_initialize(list_t* list, compare_fn compare) {
 
 // Creates and returns a new list
 // If compare is NULL, list_insert just inserts at the head
-list_t* list_create(compare_fn compare)
+list_t* list_create()
 {
     /* IMPLEMENT THIS */
     // Allocate memory for the new list
@@ -31,7 +30,7 @@ list_t* list_create(compare_fn compare)
     }
 
     // Initialize the allocated list
-    list_initialize(linked_list, compare);
+    list_initialize(linked_list);
     return linked_list;
 }
 
