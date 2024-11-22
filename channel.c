@@ -4,6 +4,11 @@
 channel_t* channel_create(size_t size)
 {
     /* IMPLEMENT THIS */
+    channel_t* channel = (channel_t*) malloc(sizeof(channel_t));
+    if (!channel) {
+        return NULL; // Handle allocation failure
+    }
+
     return NULL;
 }
 
