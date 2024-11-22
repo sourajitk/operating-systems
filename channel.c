@@ -1,15 +1,61 @@
 #include "channel.h"
 
+// Create a helper function to help us initialize 
+int initialize_channel_fields(channel_t* channel, size_t size) {
+    // Initialize the buffer
+    channel->buffer = buffer_create(size);
+    if (!channel->buffer) {
+        // Indicate failure
+        return -1;
+    }
+
+    // Initialize mutexes and condition variables
+    if (pthread_mutex_init(&channel->channel_mutex, NULL) != 0 ||
+        pthread_mutex_init(&channel->operation_mutex, NULL) != 0 ||
+        pthread_cond_init(&channel->condition_full, NULL) != 0 ||
+        pthread_cond_init(&channel->condition_empty, NULL) != 0) {
+        // Clean up on failure
+        buffer_free(channel->buffer);
+        return -1;
+    }
+
+    // Initialize other fields
+    channel->channel_closed = false;
+
+    // Create the select wait list
+    channel->select_wait_list = list_create();
+    if (!channel->select_wait_list) {
+        pthread_mutex_destroy(&channel->channel_mutex);
+        pthread_mutex_destroy(&channel->operation_mutex);
+        pthread_cond_destroy(&channel->condition_full);
+        pthread_cond_destroy(&channel->condition_empty);
+        buffer_free(channel->buffer);
+        return -1;
+    }
+
+
+    // Indicate success
+    return 0;
+}
+
 // Creates a new channel with the provided size and returns it to the caller
 channel_t* channel_create(size_t size)
 {
     /* IMPLEMENT THIS */
     channel_t* channel = (channel_t*) malloc(sizeof(channel_t));
     if (!channel) {
-        return NULL; // Handle allocation failure
+        // Handle allocation failure
+        return NULL;
     }
 
-    return NULL;
+    // We use the helper function for field initialization
+    if (initialize_channel_fields(channel, size) != 0) {
+        // Clean up if initialization fails
+        free(channel);
+        return NULL;
+    }
+
+    return channel;
 }
 
 // Writes data to the given channel
