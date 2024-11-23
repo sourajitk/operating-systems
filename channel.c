@@ -67,7 +67,18 @@ channel_t* channel_create(size_t size)
 enum channel_status channel_send(channel_t *channel, void* data)
 {
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    // Validate input and attempt to lock the channel_mutex
+    if (!channel || pthread_mutex_lock(&channel->channel_mutex) != 0) {
+        return GENERIC_ERROR;
+    }
+
+    // Check if the channel is closed
+    if (channel->channel_closed) {
+        // Unlock mutex before returning a value
+        pthread_mutex_unlock(&channel->channel_mutex);
+        return GENERIC_ERROR;
+    }
+
 }
 
 // Reads data from the given channel and stores it in the function's input parameter, data (Note that it is a double pointer)
