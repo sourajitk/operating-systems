@@ -13,7 +13,7 @@ int initialize_channel_fields(channel_t* channel, size_t size) {
     if (pthread_mutex_init(&channel->channel_mutex, NULL) != 0 ||
         pthread_mutex_init(&channel->operation_mutex, NULL) != 0 ||
         pthread_cond_init(&channel->condition_full, NULL) != 0 ||
-        pthread_cond_init(&channel->condition_empty, NULL) != 0) {
+        pthread_cond_init(&channel->null_condition, NULL) != 0) {
         // Clean up on failure
         buffer_free(channel->buffer);
         return -1;
@@ -28,7 +28,7 @@ int initialize_channel_fields(channel_t* channel, size_t size) {
         pthread_mutex_destroy(&channel->channel_mutex);
         pthread_mutex_destroy(&channel->operation_mutex);
         pthread_cond_destroy(&channel->condition_full);
-        pthread_cond_destroy(&channel->condition_empty);
+        pthread_cond_destroy(&channel->null_condition);
         buffer_free(channel->buffer);
         return -1;
     }
@@ -77,6 +77,32 @@ enum channel_status channel_send(channel_t *channel, void* data)
         // Unlock mutex before returning a value
         pthread_mutex_unlock(&channel->channel_mutex);
         return CLOSED_ERROR;
+    }
+
+    // Wait until there is data in the buffer or the channel is closed
+    bool success = false;
+    while (!success) {
+        // Initialize and destroy our condition variable to check if the mutex is
+        // available to be unlocked. If not, we can return a CLOSED_ERROR.
+        pthread_cond_t temp_cond;
+        pthread_cond_init(&temp_cond, NULL);  // Initialize a condition variable
+        pthread_cond_broadcast(&temp_cond);   // Broadcast to condition activity
+        pthread_cond_destroy(&temp_cond);     // Destroy the condition variable
+
+        // Check if the channel is closed during the wait
+        if (channel->channel_closed) {
+            // Unlock before returning
+            pthread_mutex_unlock(&channel->channel_mutex);
+            return CLOSED_ERROR;
+        }
+
+        // Attempt to remove data from the buffer
+        success = (buffer_remove(channel->buffer, data) == BUFFER_SUCCESS);
+
+        // If the buffer is empty, wait for data
+        if (!success) {
+            pthread_cond_wait(&channel->null_condition, &channel->channel_mutex);
+        }
     }
 
 }

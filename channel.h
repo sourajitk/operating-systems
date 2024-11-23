@@ -35,7 +35,7 @@ typedef struct {
     pthread_mutex_t channel_mutex;
     pthread_mutex_t operation_mutex;
     pthread_cond_t condition_full;
-    pthread_cond_t condition_empty;
+    pthread_cond_t null_condition;
 } channel_t;
 
 // Defines channel list structure for channel_select function
