@@ -105,6 +105,18 @@ enum channel_status channel_send(channel_t *channel, void* data)
         }
     }
 
+    // Check and unlock the mutex only if it has successfully added the data
+    if (pthread_mutex_unlock(&channel->channel_mutex) == 0) {
+        //printf("Signaling semaphores in the select list.\n");
+        signal_semaphore_select(channel);
+        // Signal the "condition_full" condition variable to
+        // indicate that the buffer has space again
+        pthread_cond_signal(&channel->condition_full);
+        return SUCCESS;
+    }
+    //printf("Error: Failed to unlock the channel mutex.\n");
+    return GENERIC_ERROR;
+
 }
 
 // Reads data from the given channel and stores it in the function's input parameter, data (Note that it is a double pointer)
