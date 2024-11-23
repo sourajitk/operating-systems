@@ -76,7 +76,7 @@ enum channel_status channel_send(channel_t *channel, void* data)
     if (channel->channel_closed) {
         // Unlock mutex before returning a value
         pthread_mutex_unlock(&channel->channel_mutex);
-        return GENERIC_ERROR;
+        return CLOSED_ERROR;
     }
 
 }
