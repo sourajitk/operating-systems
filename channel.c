@@ -1,6 +1,13 @@
 #include "channel.h"
 
-// Create a helper function to help us initialize 
+/* 
+ *
+ * Helper function to initialize the fields of a channel_t object.
+ * Sets up the buffer, mutexes, condition variables, and select wait list.
+ * Cleans up allocated resources if any step fails, returning -1 on error.
+ * Returns 0 on successful initialization.
+ * 
+ */
 int initialize_channel_fields(channel_t* channel, size_t size) {
     // Initialize the buffer
     channel->buffer = buffer_create(size);
@@ -105,17 +112,35 @@ enum channel_status channel_send(channel_t *channel, void* data)
         }
     }
 
-    // Check and unlock the mutex only if it has successfully added the data
+    // Unlock the channel mutex before proceeding to signal semaphores
     if (pthread_mutex_unlock(&channel->channel_mutex) == 0) {
+        // Lock the operation_mutex to safely access the semaphore select list
         //printf("Signaling semaphores in the select list.\n");
-        signal_semaphore_select(channel);
-        // Signal the "condition_full" condition variable to
-        // indicate that the buffer has space again
-        pthread_cond_signal(&channel->condition_full);
+        pthread_mutex_lock(&channel->operation_mutex);
+
+        // Signal all semaphores in the select wait list recursively
+        list_node_t* node = list_head(channel->select_wait_list);
+        while (node) {
+            if (node->data) {
+                // Signal the semaphore if valid
+                sem_post((sem_t*)node->data);
+            }
+            // Move to the next node
+            node = node->next;
+        }
+
+        // Unlock the operation_mutex after signaling all semaphores
+        pthread_mutex_unlock(&channel->operation_mutex);
+        // Signal the null_condition for other waiting threads
+        pthread_cond_signal(&channel->null_condition);
+
         return SUCCESS;
+    } else {
+        // Otherwise just return that we have an error
+        // allocating and unlocking the mutex
+        //printf("Error: Failed to unlock the channel mutex.\n");
+        return GENERIC_ERROR;
     }
-    //printf("Error: Failed to unlock the channel mutex.\n");
-    return GENERIC_ERROR;
 
 }
 
