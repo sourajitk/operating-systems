@@ -235,7 +235,36 @@ enum channel_status channel_receive(channel_t* channel, void** data)
 enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 {
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    // Attempt to lock the channel_mutex for thread-safe access
+    if (pthread_mutex_lock(&channel->channel_mutex) != 0) {
+        return GENERIC_ERROR;
+    }
+
+    // Declare status variable where we can track the status of the ERRORs
+    enum channel_status status;
+
+    // Check if the channel is closed
+    if (channel->channel_closed) {
+        status = CLOSED_ERROR; // Set status to CLOSED_ERROR if the channel is closed
+    }
+    // Try to add data to the buffer
+    else if (buffer_add(channel->buffer, data) == BUFFER_ERROR) {
+        status = CHANNEL_FULL; // Set status to CHANNEL_FULL if the buffer is full
+    } else {
+        // If data was successfully added, signal any waiting threads about new data
+        signal_all_waiting_semaphores(channel);
+        pthread_cond_signal(&channel->null_condition);
+        // Set status to SUCCESS if data was successfully added
+        status = SUCCESS;
+    }
+
+    // Unlock the mutex to allow other threads to access the channel
+    if (pthread_mutex_unlock(&channel->channel_mutex) != 0) {
+        // Return error if mutex unlock fails
+        return GENERIC_ERROR;
+    }
+    // Return the appropriate status based on the channel state and buffer operation
+    return status;
 }
 
 // Reads data from the given channel and stores it in the function's input parameter data (Note that it is a double pointer)
