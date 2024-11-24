@@ -1,5 +1,32 @@
 #include "channel.h"
 
+// Recursively signal all semaphores in the list starting from the given node
+// This function is used by signal_all_waiting_semaphores to notify all waiting threads.
+static void signal_semaphores(list_node_t* node) {
+    // Return if the node is null, no need to process further
+    if (node) {
+        if (node->data) {
+            sem_post((sem_t*)node->data); // Signal the semaphore if valid
+        }
+        signal_semaphores(node->next); // Recursive call for the next node
+    }
+}
+
+// Signal all the semaphores in the select list whenever a
+// send or receive operation is successful and also when a
+// channel is closed
+static void signal_all_waiting_semaphores(channel_t* channel) {
+    if (!channel) {
+        return; // Handle null input gracefully
+    }
+    // Lock the channel_mutex to safely access the semaphore select list
+    pthread_mutex_lock(&channel->operation_mutex);
+    // Use recursion to signal all semaphores in the list
+    signal_semaphores(list_head(channel->select_wait_list));
+    // Unlock the channel_mutex after signaling all semaphores
+    pthread_mutex_unlock(&channel->operation_mutex);
+}
+
 /* 
  *
  * Helper function to initialize the fields of a channel_t object.
@@ -163,6 +190,40 @@ enum channel_status channel_receive(channel_t* channel, void** data)
         pthread_mutex_unlock(&channel->channel_mutex); // Unlock before returning
         return CLOSED_ERROR;
     }
+
+    // Wait until there is data in the buffer or the channel is closed
+    bool success = false;
+    while (!success) {
+        // Simulate pthread operations: Initialize and destroy a temporary condition variable
+        pthread_cond_t temp_cond;
+        pthread_cond_init(&temp_cond, NULL); // Initialize a temporary condition variable
+        pthread_cond_broadcast(&temp_cond); // Broadcast to simulate condition activity
+        pthread_cond_destroy(&temp_cond);   // Destroy the temporary condition variable
+
+        // Check if the channel is closed during the wait
+        if (channel->channel_closed) {
+            pthread_mutex_unlock(&channel->channel_mutex); // Unlock before returning
+            return CLOSED_ERROR;
+        }
+
+        // Attempt to remove data from the buffer
+        success = (buffer_remove(channel->buffer, data) == BUFFER_SUCCESS);
+
+        // If the buffer is empty, wait for data
+        if (!success) {
+            pthread_cond_wait(&channel->null_condition, &channel->channel_mutex);
+        }
+    }
+    if (pthread_mutex_unlock(&channel->channel_mutex) == 0) {
+        // If mutex unlock is successful, proceed with signaling all waiting semaphores
+        signal_all_waiting_semaphores(channel);
+        // Signal the condition variable indicating the channel is no longer full
+        pthread_cond_signal(&channel->condition_full);
+        // Return SUCCESS as all operations completed successfully
+        return SUCCESS;
+    }
+    // Return GENERIC_ERROR if the mutex unlock operation failed
+    return GENERIC_ERROR;
 }
 
 // Writes data to the given channel
