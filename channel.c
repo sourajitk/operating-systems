@@ -276,7 +276,35 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 enum channel_status channel_non_blocking_receive(channel_t* channel, void** data)
 {
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    // Attempt to lock the channel_mutex for thread-safe access
+    if (pthread_mutex_lock(&channel->channel_mutex) != 0) {
+        return GENERIC_ERROR;
+    }
+
+    // Declare status variable where we can track the status of the ERRORs
+    enum channel_status status;
+
+    // Check if the channel is closed and the buffer is empty
+    if (channel->channel_closed && buffer_current_size(channel->buffer) == 0) {
+        status = CLOSED_ERROR; // Set status to CHANNEL_FULL if the buffer is full
+    }
+    // Try to remove data from the buffer
+    else if (buffer_remove(channel->buffer, data) == BUFFER_ERROR) {
+        status = CHANNEL_EMPTY; // Buffer is empty
+    } else {
+        // Signal any waiting threads about available buffer space
+        signal_all_waiting_semaphores(channel);
+        pthread_cond_signal(&channel->condition_full);
+    }
+
+    // Unlock the channel_mutex and return the appropriate status
+    if (pthread_mutex_unlock(&channel->channel_mutex) != 0) {
+        // Return error if mutex unlock fails
+        return GENERIC_ERROR;
+    }
+
+    // Return the appropriate status based on the channel state and buffer operation
+    return status;
 }
 
 // Closes the channel and informs all the blocking send/receive/select calls to return with CLOSED_ERROR
