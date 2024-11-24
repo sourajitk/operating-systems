@@ -241,7 +241,7 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
     }
 
     // Declare status variable where we can track the status of the ERRORs
-    enum channel_status status;
+    enum channel_status status = 0;
 
     // Check if the channel is closed
     if (channel->channel_closed) {
@@ -282,7 +282,7 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
     }
 
     // Declare status variable where we can track the status of the ERRORs
-    enum channel_status status;
+    enum channel_status status = 0;
 
     // Check if the channel is closed and the buffer is empty
     if (channel->channel_closed && buffer_current_size(channel->buffer) == 0) {
@@ -315,7 +315,35 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
 enum channel_status channel_close(channel_t* channel)
 {
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    // Validate input and lock the channel_mutex
+    if (!channel || pthread_mutex_lock(&channel->channel_mutex) != 0) {
+        return GENERIC_ERROR;
+    }
+
+    // Declare status variable where we can track the status of the ERRORs
+    enum channel_status status = 0;
+
+    // Check if the channel is already closed
+    if (channel->channel_closed) {
+        status = CLOSED_ERROR;
+    } else {
+        // Mark the channel as closed
+        channel->channel_closed = true;
+
+        // Notify all threads waiting on this channel
+        signal_all_waiting_semaphores(channel);
+        pthread_cond_broadcast(&channel->null_condition);
+        pthread_cond_broadcast(&channel->condition_full);
+    }
+
+    // Unlock the channel_mutex and return the appropriate status
+    if (pthread_mutex_unlock(&channel->channel_mutex) != 0) {
+        // Return error if mutex unlock fails
+        return GENERIC_ERROR;
+    }
+
+    // Return the appropriate status based on the channel state and buffer operation
+    return status;
 }
 
 // Frees all the memory allocated to the channel
