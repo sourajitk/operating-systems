@@ -153,7 +153,16 @@ enum channel_status channel_send(channel_t *channel, void* data)
 enum channel_status channel_receive(channel_t* channel, void** data)
 {
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    // Attempt to lock the channel_mutex for thread-safe access
+    if (!channel || pthread_mutex_lock(&channel->channel_mutex) != 0) {
+        return GENERIC_ERROR;
+    }
+
+    // Check if the channel is closed and the buffer is empty
+    if (channel->channel_closed && buffer_current_size(channel->buffer) == 0) {
+        pthread_mutex_unlock(&channel->channel_mutex); // Unlock before returning
+        return CLOSED_ERROR;
+    }
 }
 
 // Writes data to the given channel
