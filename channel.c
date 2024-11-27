@@ -14,7 +14,7 @@ static void signal_semaphores(list_node_t* node) {
 
 // Signal all the semaphores in the select list whenever a
 // send or receive operation is successful and also when a
-// channel is closed
+// channel is closed.
 static void signal_all_waiting_semaphores(channel_t* channel) {
     if (!channel) {
         return; // Handle null input gracefully
@@ -25,6 +25,37 @@ static void signal_all_waiting_semaphores(channel_t* channel) {
     signal_semaphores(list_head(channel->select_wait_list));
     // Unlock the channel_mutex after signaling all semaphores
     pthread_mutex_unlock(&channel->operation_mutex);
+}
+
+
+// Clean up resources associated with the channel
+static void channel_cleanup(channel_t* channel) {
+    // Check if the channel is not null before attempting cleanup
+    if (!channel) {
+        return; // If the channel is null, there's nothing to clean up
+    }
+
+    // Destroy condition variables, if they are initialized
+    pthread_cond_destroy(&channel->condition_full);
+    pthread_cond_destroy(&channel->null_condition);
+
+    // Destroy mutexes, if they are initialized
+    pthread_mutex_destroy(&channel->channel_mutex);    // Destroys the channel mutex
+    pthread_mutex_destroy(&channel->operation_mutex);  // Destroys the operation mutex
+
+    // Free the buffer associated with the channel, if it is allocated
+    if (channel->buffer) {
+        // Frees the memory used by the buffer
+        buffer_free(channel->buffer);
+    }
+
+    // Destroy the select wait list, if it exists
+    if (channel->select_wait_list) {
+        list_destroy(channel->select_wait_list);
+    }
+
+    // Finally, free the memory allocated for the channel structure itself
+    free(channel);
 }
 
 /* 
@@ -354,6 +385,13 @@ enum channel_status channel_close(channel_t* channel)
 enum channel_status channel_destroy(channel_t* channel)
 {
     /* IMPLEMENT THIS */
+    // Check if the channel is still open
+    if (!channel || !channel->channel_closed) {
+        return DESTROY_ERROR;
+    }
+    // Cleanup resources
+    channel_cleanup(channel);
+    // Return SUCCESS since we know that the channel has been destroyed.
     return SUCCESS;
 }
 
