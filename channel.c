@@ -405,5 +405,31 @@ enum channel_status channel_destroy(channel_t* channel)
 enum channel_status channel_select(select_t* channel_list, size_t channel_count, size_t* selected_index)
 {
     /* IMPLEMENT THIS */
-    return SUCCESS;
+    // Validate inputs
+    if (!channel_list || channel_count == 0 || !selected_index) {
+        return GENERIC_ERROR;
+    }
+
+    // Initialize semaphore and mutex for selection
+    pthread_mutex_t selection_mutex;
+    sem_t selection_semaphore;
+    if (pthread_mutex_init(&selection_mutex, NULL) != 0 ||
+        sem_init(&selection_semaphore, 0, 0) != 0) {
+        return GENERIC_ERROR;
+    }
+
+    // Lock mutex for thread safety
+    if (pthread_mutex_lock(&selection_mutex) != 0) {
+        sem_destroy(&selection_semaphore);
+        pthread_mutex_destroy(&selection_mutex);
+        return GENERIC_ERROR;
+    }
+
+    // Initialize the select list with the provided semaphore
+    if (!initialize_select_list(channel_list, channel_count, &selection_semaphore)) {
+        pthread_mutex_unlock(&selection_mutex);
+        sem_destroy(&selection_semaphore);
+        pthread_mutex_destroy(&selection_mutex);
+        return GENERIC_ERROR;
+    }
 }
