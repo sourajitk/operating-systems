@@ -411,25 +411,17 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
     }
 
     // Initialize semaphore and mutex for selection
-    pthread_mutex_t selection_mutex;
-    sem_t selection_semaphore;
-    if (pthread_mutex_init(&selection_mutex, NULL) != 0 ||
-        sem_init(&selection_semaphore, 0, 0) != 0) {
-        return GENERIC_ERROR;
+    // Check if the channel is closed and the buffer is empty
+    if (channel->channel_closed && buffer_current_size(channel->buffer) == 0) {
+        status = CLOSED_ERROR;
+    }
+    // Try to remove data from the buffer
+    else if (buffer_remove(channel->buffer, data) == BUFFER_ERROR) {
+        status = CHANNEL_EMPTY; // Buffer is empty
+    } else {
+        // Signal any waiting threads about available buffer space
+        signal_all_waiting_semaphores(channel);
+        pthread_cond_signal(&channel->condition_full);
     }
 
-    // Lock mutex for thread safety
-    if (pthread_mutex_lock(&selection_mutex) != 0) {
-        sem_destroy(&selection_semaphore);
-        pthread_mutex_destroy(&selection_mutex);
-        return GENERIC_ERROR;
-    }
-
-    // Initialize the select list with the provided semaphore
-    if (!initialize_select_list(channel_list, channel_count, &selection_semaphore)) {
-        pthread_mutex_unlock(&selection_mutex);
-        sem_destroy(&selection_semaphore);
-        pthread_mutex_destroy(&selection_mutex);
-        return GENERIC_ERROR;
-    }
 }
