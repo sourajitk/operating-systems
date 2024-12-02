@@ -58,6 +58,29 @@ static void channel_cleanup(channel_t* channel) {
     free(channel);
 }
 
+
+// Helper Function: Initialize the select list with the provided semaphore
+static bool initialize_select_list(select_t* channel_list, size_t channel_count, sem_t* semaphore) {
+    // Return failure if inputs are invalid
+    if (!channel_list || channel_count == 0 || !semaphore) {
+        return false;
+    }
+    // Iterate through each channel in the channel list
+    size_t add_semaphore_channel = 0; 
+    while (add_semaphore_channel < channel_count) {
+        // Acquire the mutex lock for the current channel
+        pthread_mutex_lock(&channel_list[add_semaphore_channel].channel->operation_mutex); 
+        // Insert the semaphore into the select wait list of the current channel
+        list_insert(channel_list[add_semaphore_channel].channel->select_wait_list, semaphore); 
+        // Release the mutex lock for the current channel
+        pthread_mutex_unlock(&channel_list[add_semaphore_channel].channel->operation_mutex); 
+        // Increment the index to process the next channel
+        add_semaphore_channel = add_semaphore_channel + 1;
+    }
+    // Return success if initialization is successful
+    return true;
+}
+
 /* 
  *
  * Helper function to initialize the fields of a channel_t object.
@@ -411,17 +434,68 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
     }
 
     // Initialize semaphore and mutex for selection
-    // Check if the channel is closed and the buffer is empty
-    if (channel->channel_closed && buffer_current_size(channel->buffer) == 0) {
-        status = CLOSED_ERROR;
-    }
-    // Try to remove data from the buffer
-    else if (buffer_remove(channel->buffer, data) == BUFFER_ERROR) {
-        status = CHANNEL_EMPTY; // Buffer is empty
-    } else {
-        // Signal any waiting threads about available buffer space
-        signal_all_waiting_semaphores(channel);
-        pthread_cond_signal(&channel->condition_full);
+    pthread_mutex_t selection_mutex;
+    sem_t selection_semaphore;
+    if (pthread_mutex_init(&selection_mutex, NULL) != 0 ||
+        sem_init(&selection_semaphore, 0, 0) != 0) {
+        return GENERIC_ERROR;
     }
 
+    // Lock mutex for thread safety
+    if (pthread_mutex_lock(&selection_mutex) != 0) {
+        sem_destroy(&selection_semaphore);
+        pthread_mutex_destroy(&selection_mutex);
+        return GENERIC_ERROR;
+    }
+
+    // Initialize the select list with the provided semaphore
+    if (!initialize_select_list(channel_list, channel_count, &selection_semaphore)) {
+        pthread_mutex_unlock(&selection_mutex);
+        sem_destroy(&selection_semaphore);
+        pthread_mutex_destroy(&selection_mutex);
+        return GENERIC_ERROR;
+    }
+
+    // Setup initial values of the statuses 
+    enum channel_status status = 0; // Initialize channel status (e.g., CHANNEL_FULL, CHANNEL_EMPTY)
+    bool channel_ready = false;     // Flag to indicate if a ready channel is found
+    size_t current_index = 0;       // Index to iterate through the channel list
+
+    // Main loop for channel selection - continues until a ready channel is found
+    while (!channel_ready) { 
+        // Iterate through the channels to find a ready one 
+        while (current_index < channel_count) {
+            if (channel_list[current_index].dir == SEND) {
+                // Attempt non-blocking send operation on the current channel
+                status = channel_non_blocking_send(channel_list[current_index].channel,
+                channel_list[current_index].data); 
+                
+                // Check if the send operation was successful (i.e., the channel was not full)
+                if (status != CHANNEL_FULL) { 
+                    *selected_index = current_index;
+                    channel_ready = true;
+                    break;
+                }
+            } else if (channel_list[current_index].dir == RECV) {
+                // Attempt non-blocking receive operation on the current channel
+                void* receive_data = &channel_list[current_index].data;
+                channel_t* receive_channel = channel_list[current_index].channel;
+                status = channel_non_blocking_receive(receive_channel, receive_data);
+                
+                // Check if the receive operation was successful (i.e., the channel was not empty)
+                if (status != CHANNEL_EMPTY) {
+                    *selected_index = current_index;
+                    channel_ready = true;
+                    break;   
+                }
+            }
+            current_index = current_index + 1; // Move to the next channel in the list
+        }
+
+        // If no ready channel was found in the entire list
+        if (!channel_ready) {
+            current_index = 0;       // Reset the index to start from the beginning in the next iteration
+            sem_wait(&selection_semaphore); // Wait for a signal indicating a channel might be ready 
+        }
+    }
 }
