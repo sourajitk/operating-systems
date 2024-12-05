@@ -498,4 +498,24 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
             sem_wait(&selection_semaphore); // Wait for a signal indicating a channel might be ready 
         }
     }
+
+    // Remove the semaphore from all channels in the list
+    size_t remove_semaphore_channel = 0;
+    while (remove_semaphore_channel < channel_count) {
+        pthread_mutex_lock(&channel_list[remove_semaphore_channel].channel->operation_mutex);
+        list_node_t* node = list_find(channel_list[remove_semaphore_channel].channel->select_wait_list, &selection_semaphore);
+        if (node) {
+            list_remove(channel_list[remove_semaphore_channel].channel->select_wait_list, node);
+        }
+        pthread_mutex_unlock(&channel_list[remove_semaphore_channel].channel->operation_mutex);
+        remove_semaphore_channel = remove_semaphore_channel + 1; // Increment the index
+    }
+
+    // Unlock and clean up
+    pthread_mutex_unlock(&selection_mutex);
+    sem_destroy(&selection_semaphore);
+    pthread_mutex_destroy(&selection_mutex);
+    // Return the final status
+    return status;
+
 }
