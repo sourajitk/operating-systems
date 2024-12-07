@@ -186,17 +186,28 @@ enum channel_status channel_send(channel_t *channel, void* data)
         }
     }
 
-    // Unlock the channel mutex before signaling semaphores
+    // Unlock the channel mutex before proceeding to signal semaphores
     if (pthread_mutex_unlock(&channel->channel_mutex) == 0) {
-        // Signal all waiting semaphores in the select list
-        signal_all_waiting_semaphores(channel);
+        // Lock the operation_mutex to safely access the semaphore select list
+        pthread_mutex_lock(&channel->operation_mutex);
+
+        // Signal all semaphores in the select wait list recursively
+        list_node_t* node = list_head(channel->select_wait_list);
+        while (node) {
+            if (node->data) {
+                sem_post((sem_t*)node->data); // Signal the semaphore if valid
+            }
+            node = node->next; // Move to the next node
+        }
+
+        // Unlock the operation_mutex after signaling all semaphores
+        pthread_mutex_unlock(&channel->operation_mutex);
 
         // Signal the null_condition for other waiting threads
         pthread_cond_signal(&channel->null_condition);
 
         return SUCCESS;
     } else {
-        // Return error if unlocking fails
         return GENERIC_ERROR;
     }
 
