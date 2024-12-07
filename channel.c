@@ -268,7 +268,7 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
     }
 
     // Declare status variable where we can track the status of the ERRORs
-    enum channel_status status = 0;
+    enum channel_status status = SUCCESS;
 
     // Check if the channel is closed
     if (channel->channel_closed) {
@@ -309,7 +309,7 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
     }
 
     // Declare status variable where we can track the status of the ERRORs
-    enum channel_status status = 0;
+    enum channel_status status = SUCCESS;
 
     // Check if the channel is closed and the buffer is empty
     if (channel->channel_closed && buffer_current_size(channel->buffer) == 0) {
@@ -348,7 +348,7 @@ enum channel_status channel_close(channel_t* channel)
     }
 
     // Declare status variable where we can track the status of the ERRORs
-    enum channel_status status = 0;
+    enum channel_status status = SUCCESS;
 
     // Check if the channel is already closed
     if (channel->channel_closed) {
@@ -430,7 +430,7 @@ enum channel_status channel_select(select_t* channel_list, size_t channel_count,
     }
 
     // Setup initial values of the statuses 
-    enum channel_status status = 0; // Initialize channel status (e.g., CHANNEL_FULL, CHANNEL_EMPTY)
+    enum channel_status status = GENERIC_ERROR; // Initialize channel status (e.g., CHANNEL_FULL, CHANNEL_EMPTY)
     bool channel_ready = false;     // Flag to indicate if a ready channel is found
     size_t current_index = 0;       // Index to iterate through the channel list
 
