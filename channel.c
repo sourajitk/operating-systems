@@ -155,7 +155,7 @@ channel_t* channel_create(size_t size)
 enum channel_status channel_send(channel_t *channel, void* data)
 {
     /* IMPLEMENT THIS */
-    // Validate input and attempt to lock the channel_mutex
+    // Validate input and attempt to lock the channel mutex
     if (!channel || pthread_mutex_lock(&channel->channel_mutex) != 0) {
         return GENERIC_ERROR;
     }
@@ -167,59 +167,36 @@ enum channel_status channel_send(channel_t *channel, void* data)
         return CLOSED_ERROR;
     }
 
-    // Wait until there is data in the buffer or the channel is closed
+    // Wait until there is space in the buffer or the channel is closed
     bool success = false;
     while (!success) {
-        // Initialize and destroy our condition variable to check if the mutex is
-        // available to be unlocked. If not, we can return a CLOSED_ERROR.
-        pthread_cond_t temp_cond;
-        pthread_cond_init(&temp_cond, NULL);  // Initialize a condition variable
-        pthread_cond_broadcast(&temp_cond);   // Broadcast to condition activity
-        pthread_cond_destroy(&temp_cond);     // Destroy the condition variable
-
         // Check if the channel is closed during the wait
         if (channel->channel_closed) {
-            // Unlock before returning
+            // Unlock mutex before returning a value
             pthread_mutex_unlock(&channel->channel_mutex);
             return CLOSED_ERROR;
         }
 
-        // Attempt to remove data from the buffer
-        success = (buffer_remove(channel->buffer, data) == BUFFER_SUCCESS);
+        // Attempt to add data to the buffer
+        success = (buffer_add(channel->buffer, data) == BUFFER_SUCCESS);
 
-        // If the buffer is empty, wait for data
+        // If the buffer is full, wait for space
         if (!success) {
-            pthread_cond_wait(&channel->null_condition, &channel->channel_mutex);
+            pthread_cond_wait(&channel->condition_full, &channel->channel_mutex);
         }
     }
 
-    // Unlock the channel mutex before proceeding to signal semaphores
+    // Unlock the channel mutex before signaling semaphores
     if (pthread_mutex_unlock(&channel->channel_mutex) == 0) {
-        // Lock the operation_mutex to safely access the semaphore select list
-        //printf("Signaling semaphores in the select list.\n");
-        pthread_mutex_lock(&channel->operation_mutex);
+        // Signal all waiting semaphores in the select list
+        signal_all_waiting_semaphores(channel);
 
-        // Signal all semaphores in the select wait list recursively
-        list_node_t* node = list_head(channel->select_wait_list);
-        while (node) {
-            if (node->data) {
-                // Signal the semaphore if valid
-                sem_post((sem_t*)node->data);
-            }
-            // Move to the next node
-            node = node->next;
-        }
-
-        // Unlock the operation_mutex after signaling all semaphores
-        pthread_mutex_unlock(&channel->operation_mutex);
         // Signal the null_condition for other waiting threads
         pthread_cond_signal(&channel->null_condition);
 
         return SUCCESS;
     } else {
-        // Otherwise just return that we have an error
-        // allocating and unlocking the mutex
-        //printf("Error: Failed to unlock the channel mutex.\n");
+        // Return error if unlocking fails
         return GENERIC_ERROR;
     }
 
