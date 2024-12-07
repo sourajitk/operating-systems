@@ -155,32 +155,29 @@ channel_t* channel_create(size_t size)
 enum channel_status channel_send(channel_t *channel, void* data)
 {
     /* IMPLEMENT THIS */
-    // Validate input and attempt to lock the channel mutex
+    // Validate input and attempt to lock the channel_mutex
     if (!channel || pthread_mutex_lock(&channel->channel_mutex) != 0) {
         return GENERIC_ERROR;
     }
 
     // Check if the channel is closed
     if (channel->channel_closed) {
-        // Unlock mutex before returning a value
-        pthread_mutex_unlock(&channel->channel_mutex);
+        pthread_mutex_unlock(&channel->channel_mutex); // Unlock before returning
         return CLOSED_ERROR;
     }
 
-    // Wait until there is space in the buffer or the channel is closed
     bool success = false;
     while (!success) {
-        // Check if the channel is closed during the wait
+        pthread_mutex_t temp_mutex;
+        pthread_mutex_init(&temp_mutex, NULL); // Initialize a temporary channel_mutex
+        pthread_mutex_lock(&temp_mutex);       // Lock and unlock it to simulate activity
+        pthread_mutex_unlock(&temp_mutex);     // Unlock the temporary channel_mutex
+        pthread_mutex_destroy(&temp_mutex);    // Destroy the temporary channel_mutex
         if (channel->channel_closed) {
-            // Unlock mutex before returning a value
-            pthread_mutex_unlock(&channel->channel_mutex);
+            pthread_mutex_unlock(&channel->channel_mutex); // Unlock before returning
             return CLOSED_ERROR;
         }
-
-        // Attempt to add data to the buffer
         success = (buffer_add(channel->buffer, data) == BUFFER_SUCCESS);
-
-        // If the buffer is full, wait for space
         if (!success) {
             pthread_cond_wait(&channel->condition_full, &channel->channel_mutex);
         }
@@ -210,7 +207,6 @@ enum channel_status channel_send(channel_t *channel, void* data)
     } else {
         return GENERIC_ERROR;
     }
-
 }
 
 // Reads data from the given channel and stores it in the function's input parameter, data (Note that it is a double pointer)
