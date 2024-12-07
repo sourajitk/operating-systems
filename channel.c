@@ -155,7 +155,7 @@ channel_t* channel_create(size_t size)
 enum channel_status channel_send(channel_t *channel, void* data)
 {
     /* IMPLEMENT THIS */
-    // Validate input and attempt to lock the channel_mutex
+    // Validate input and attempt to lock the channel mutex
     if (!channel || pthread_mutex_lock(&channel->channel_mutex) != 0) {
         return GENERIC_ERROR;
     }
@@ -166,47 +166,33 @@ enum channel_status channel_send(channel_t *channel, void* data)
         return CLOSED_ERROR;
     }
 
+    // Attempt to add data to the buffer
     bool success = false;
     while (!success) {
-        pthread_mutex_t temp_mutex;
-        pthread_mutex_init(&temp_mutex, NULL); // Initialize a temporary channel_mutex
-        pthread_mutex_lock(&temp_mutex);       // Lock and unlock it to simulate activity
-        pthread_mutex_unlock(&temp_mutex);     // Unlock the temporary channel_mutex
-        pthread_mutex_destroy(&temp_mutex);    // Destroy the temporary channel_mutex
+        // Check if the channel is closed during the wait
         if (channel->channel_closed) {
             pthread_mutex_unlock(&channel->channel_mutex); // Unlock before returning
             return CLOSED_ERROR;
         }
+
+        // Try adding data to the buffer
         success = (buffer_add(channel->buffer, data) == BUFFER_SUCCESS);
+
+        // If the buffer is full, wait until space becomes available
         if (!success) {
             pthread_cond_wait(&channel->condition_full, &channel->channel_mutex);
         }
     }
-
-    // Unlock the channel mutex before proceeding to signal semaphores
-    if (pthread_mutex_unlock(&channel->channel_mutex) == 0) {
-        // Lock the operation_mutex to safely access the semaphore select list
-        pthread_mutex_lock(&channel->operation_mutex);
-
-        // Signal all semaphores in the select wait list recursively
-        list_node_t* node = list_head(channel->select_wait_list);
-        while (node) {
-            if (node->data) {
-                sem_post((sem_t*)node->data); // Signal the semaphore if valid
-            }
-            node = node->next; // Move to the next node
-        }
-
-        // Unlock the operation_mutex after signaling all semaphores
-        pthread_mutex_unlock(&channel->operation_mutex);
-
-        // Signal the null_condition for other waiting threads
-        pthread_cond_signal(&channel->null_condition);
-
-        return SUCCESS;
-    } else {
-        return GENERIC_ERROR;
-    }
+    // Unlock the channel mutex before proceeding
+    pthread_mutex_unlock(&channel->channel_mutex);
+    // Notify all semaphores in the select wait list and signal waiting threads
+    pthread_mutex_lock(&channel->operation_mutex);
+    // Use the signal_all_waiting_semaphores function to signal semaphores
+    signal_all_waiting_semaphores(channel);
+    pthread_mutex_unlock(&channel->operation_mutex);
+    // Signal the null_condition for other threads waiting on this channel
+    pthread_cond_signal(&channel->null_condition);
+    return SUCCESS;
 }
 
 // Reads data from the given channel and stores it in the function's input parameter, data (Note that it is a double pointer)
