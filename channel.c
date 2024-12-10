@@ -3,18 +3,22 @@
 // Recursively signal all semaphores in the list starting from the given node
 // This function is used by signal_all_waiting_semaphores to notify all waiting threads.
 static void signal_semaphores(list_node_t* node) {
-    // Return if the node is null, no need to process further
-    if (node) {
-        if (node->data) {
-            sem_post((sem_t*)node->data); // Signal the semaphore if valid
-        }
-        signal_semaphores(node->next); // Recursive call for the next node
+    // Base case: stop if the current node is null
+    if (node == NULL) {
+        return;
     }
+    if (node->data != NULL) {
+        // Signal the semaphore stored in the node's data
+        sem_post((sem_t*)node->data);
+    }
+    // Recursively signal the semaphore in the next node
+    signal_semaphores(node->next);
 }
 
-// Signal all the semaphores in the select list whenever a
-// send or receive operation is successful and also when a
-// channel is closed.
+// This function ensures that all threads waiting on the channel's select list 
+// are notified whenever a send or receive operation is completed successfully 
+// or the channel is closed.
+// It locks the operation mutex to safely access the semaphore list.
 static void signal_all_waiting_semaphores(channel_t* channel) {
     if (!channel) {
         return; // Handle null input gracefully
@@ -26,7 +30,6 @@ static void signal_all_waiting_semaphores(channel_t* channel) {
     // Unlock the channel_mutex after signaling all semaphores
     pthread_mutex_unlock(&channel->operation_mutex);
 }
-
 
 // Clean up resources associated with the channel
 static void channel_cleanup(channel_t* channel) {
@@ -57,7 +60,6 @@ static void channel_cleanup(channel_t* channel) {
     // Finally, free the memory allocated for the channel structure itself
     free(channel);
 }
-
 
 // Helper Function: Initialize the select list with the provided semaphore
 static bool initialize_select_list(select_t* channel_list, size_t channel_count, sem_t* semaphore) {
